@@ -1,0 +1,1609 @@
+{
+  "data_root": "/home/prj/data/egocom_holdout/1min",
+  "total": {
+    "splits": 3,
+    "scenes": 63,
+    "problem_scenes": 7,
+    "clips": 175,
+    "clips_without_representatives": 4,
+    "total_segments": 349,
+    "resolved_segments": 335,
+    "unresolved_segments": 14,
+    "conflict_segments": 0,
+    "missing_embedding_segments": 7,
+    "low_embedding_count_segments": 7,
+    "fallback_scenes": 15,
+    "all_chunks_conflicted_scenes": 0
+  },
+  "splits": {
+    "test": {
+      "scenes": 9,
+      "problem_scenes": 2,
+      "clips": 26,
+      "clips_without_representatives": 1,
+      "total_segments": 52,
+      "resolved_segments": 47,
+      "unresolved_segments": 5,
+      "conflict_segments": 0,
+      "missing_embedding_segments": 3,
+      "low_embedding_count_segments": 2,
+      "fallback_scenes": 3,
+      "all_chunks_conflicted_scenes": 0,
+      "reason_counts": {
+        "empty_similarity_matrix": 3,
+        "low_embedding_count": 2,
+        "missing_embedding": 2,
+        "one_by_one_below_threshold": 2,
+        "unresolved_assignment": 4
+      }
+    },
+    "train": {
+      "scenes": 48,
+      "problem_scenes": 5,
+      "clips": 131,
+      "clips_without_representatives": 3,
+      "total_segments": 261,
+      "resolved_segments": 252,
+      "unresolved_segments": 9,
+      "conflict_segments": 0,
+      "missing_embedding_segments": 4,
+      "low_embedding_count_segments": 5,
+      "fallback_scenes": 11,
+      "all_chunks_conflicted_scenes": 0,
+      "reason_counts": {
+        "empty_similarity_matrix": 9,
+        "low_embedding_count": 4,
+        "missing_embedding": 4,
+        "unresolved_assignment": 6
+      }
+    },
+    "val": {
+      "scenes": 6,
+      "problem_scenes": 0,
+      "clips": 18,
+      "clips_without_representatives": 0,
+      "total_segments": 36,
+      "resolved_segments": 36,
+      "unresolved_segments": 0,
+      "conflict_segments": 0,
+      "missing_embedding_segments": 0,
+      "low_embedding_count_segments": 0,
+      "fallback_scenes": 1,
+      "all_chunks_conflicted_scenes": 0,
+      "reason_counts": {}
+    }
+  },
+  "problem_scenes": [
+    {
+      "split": "test",
+      "scene_key": "day_4__con_5",
+      "summary": {
+        "split": "test",
+        "scene_key": "day_4__con_5",
+        "num_input_clips": 3,
+        "num_loaded_clips": 3,
+        "camera_persons": [
+          1,
+          2,
+          3
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 3,
+        "total_segments": 6,
+        "resolved_segments": 3,
+        "unresolved_segments": 3,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "1x2": 1,
+          "1x0": 1,
+          "2x0": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 2,
+        "selected_chunk": 2,
+        "num_chunk_attempts": 2,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 2,
+            "unresolved_segments": 4,
+            "conflict_segments": 2,
+            "matrix_shape_counts": {
+              "2x2": 1,
+              "2x1": 2
+            }
+          },
+          {
+            "chunk": 2,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 3,
+            "unresolved_segments": 3,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "1x2": 1,
+              "1x0": 1,
+              "2x0": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/test/person_face_mapping/day_4__con_5",
+      "selected_chunk": 2,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 2,
+          "unresolved_segments": 4,
+          "conflict_segments": 2,
+          "matrix_shape_counts": {
+            "2x2": 1,
+            "2x1": 2
+          }
+        },
+        {
+          "chunk": 2,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 3,
+          "unresolved_segments": 3,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "1x2": 1,
+            "1x0": 1,
+            "2x0": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_130__day_4__con_5__person_1_chunk_0002",
+          "camera_person": 1,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [
+            1
+          ],
+          "assignments": {
+            "1": 3,
+            "0": null
+          },
+          "resolved_assignments": {
+            "1": 3
+          },
+          "unknown_segments": [
+            0
+          ],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [
+            0
+          ],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "empty_similarity_matrix",
+            "low_embedding_count",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_131__day_4__con_5__person_2_chunk_0002",
+              "expected_common_person": 3,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                1,
+                2
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 1,
+              "top_similarity": 0.7534539103507996,
+              "top_margin": 0.11917448043823242
+            },
+            {
+              "other_clip": "vid_132__day_4__con_5__person_3_chunk_0002",
+              "expected_common_person": 2,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                1,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_131__day_4__con_5__person_2_chunk_0002",
+          "camera_person": 2,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [
+            1,
+            0
+          ],
+          "assignments": {
+            "1": 3,
+            "0": 1
+          },
+          "resolved_assignments": {
+            "1": 3,
+            "0": 1
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_130__day_4__con_5__person_1_chunk_0002",
+              "expected_common_person": 3,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                1,
+                2
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 1,
+              "top_similarity": 0.7534539103507996,
+              "top_margin": 0.11917448043823242
+            },
+            {
+              "other_clip": "vid_132__day_4__con_5__person_3_chunk_0002",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_132__day_4__con_5__person_3_chunk_0002",
+          "camera_person": 3,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [],
+          "assignments": {
+            "1": null,
+            "0": null
+          },
+          "resolved_assignments": {},
+          "unknown_segments": [
+            0,
+            1
+          ],
+          "missing_embedding_segment_ids": [
+            1,
+            0
+          ],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 0,
+          "reasons": [
+            "empty_similarity_matrix",
+            "missing_embedding",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_130__day_4__con_5__person_1_chunk_0002",
+              "expected_common_person": 2,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                1,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_131__day_4__con_5__person_2_chunk_0002",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "test",
+      "scene_key": "day_5__con_4",
+      "summary": {
+        "split": "test",
+        "scene_key": "day_5__con_4",
+        "num_input_clips": 3,
+        "num_loaded_clips": 3,
+        "camera_persons": [
+          1,
+          2,
+          3
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 3,
+        "total_segments": 6,
+        "resolved_segments": 4,
+        "unresolved_segments": 2,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "1x1": 1,
+          "1x2": 2
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 1,
+        "selected_chunk": 1,
+        "num_chunk_attempts": 1,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "1x1": 1,
+              "1x2": 2
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/test/person_face_mapping/day_5__con_4",
+      "selected_chunk": 1,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "1x1": 1,
+            "1x2": 2
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_143__day_5__con_4__person_1_chunk_0001",
+          "camera_person": 1,
+          "top_segment_ids": [
+            2,
+            1
+          ],
+          "selected_embedding_segment_ids": [
+            2
+          ],
+          "assignments": {
+            "2": 2,
+            "1": null
+          },
+          "resolved_assignments": {
+            "2": 2
+          },
+          "unknown_segments": [
+            1
+          ],
+          "missing_embedding_segment_ids": [
+            1
+          ],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "missing_embedding",
+            "one_by_one_below_threshold",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_144__day_5__con_4__person_2_chunk_0001",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "one_by_one_below_threshold",
+              "matrix_shape": [
+                1,
+                1
+              ],
+              "local_segment_id": 2,
+              "other_segment_id": 1,
+              "top_similarity": 0.6379600167274475,
+              "top_margin": 0.6379600167274475
+            },
+            {
+              "other_clip": "vid_145__day_5__con_4__person_3_chunk_0001",
+              "expected_common_person": 2,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                1,
+                2
+              ],
+              "local_segment_id": 2,
+              "other_segment_id": 0,
+              "top_similarity": 0.8220715522766113,
+              "top_margin": 0.16450214385986328
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_144__day_5__con_4__person_2_chunk_0001",
+          "camera_person": 2,
+          "top_segment_ids": [
+            0,
+            1
+          ],
+          "selected_embedding_segment_ids": [
+            1
+          ],
+          "assignments": {
+            "0": null,
+            "1": 1
+          },
+          "resolved_assignments": {
+            "1": 1
+          },
+          "unknown_segments": [
+            0
+          ],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [
+            0
+          ],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "low_embedding_count",
+            "one_by_one_below_threshold",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_143__day_5__con_4__person_1_chunk_0001",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "one_by_one_below_threshold",
+              "matrix_shape": [
+                1,
+                1
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 2,
+              "top_similarity": 0.6379600167274475,
+              "top_margin": 0.6379600167274475
+            },
+            {
+              "other_clip": "vid_145__day_5__con_4__person_3_chunk_0001",
+              "expected_common_person": 1,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                1,
+                2
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 1,
+              "top_similarity": 0.5428817868232727,
+              "top_margin": 0.02638840675354004
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "train",
+      "scene_key": "day_1__con_5__part2",
+      "summary": {
+        "split": "train",
+        "scene_key": "day_1__con_5__part2",
+        "num_input_clips": 2,
+        "num_loaded_clips": 2,
+        "camera_persons": [
+          1,
+          2
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 1,
+        "total_segments": 4,
+        "resolved_segments": 3,
+        "unresolved_segments": 1,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "2x1": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 1,
+        "selected_chunk": 1,
+        "num_chunk_attempts": 1,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 2,
+            "total_segments": 4,
+            "resolved_segments": 3,
+            "unresolved_segments": 1,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "2x1": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_1__con_5__part2",
+      "selected_chunk": 1,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 2,
+          "total_segments": 4,
+          "resolved_segments": 3,
+          "unresolved_segments": 1,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "2x1": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_061__day_1__con_5__person_2_part2_chunk_0001",
+          "camera_person": 2,
+          "top_segment_ids": [
+            2,
+            9
+          ],
+          "selected_embedding_segment_ids": [
+            9
+          ],
+          "assignments": {
+            "2": null,
+            "9": 3
+          },
+          "resolved_assignments": {
+            "9": 3
+          },
+          "unknown_segments": [
+            2
+          ],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [
+            2
+          ],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "low_embedding_count",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_056__day_1__con_5__person_1_part2_chunk_0001",
+              "expected_common_person": 3,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                1
+              ],
+              "local_segment_id": 9,
+              "other_segment_id": 3,
+              "top_similarity": 0.6917717456817627,
+              "top_margin": 0.41595956683158875
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "train",
+      "scene_key": "day_1__con_5__part3",
+      "summary": {
+        "split": "train",
+        "scene_key": "day_1__con_5__part3",
+        "num_input_clips": 2,
+        "num_loaded_clips": 2,
+        "camera_persons": [
+          1,
+          2
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 1,
+        "total_segments": 4,
+        "resolved_segments": 3,
+        "unresolved_segments": 1,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "2x1": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 1,
+        "selected_chunk": 1,
+        "num_chunk_attempts": 1,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 2,
+            "total_segments": 4,
+            "resolved_segments": 3,
+            "unresolved_segments": 1,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "2x1": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_1__con_5__part3",
+      "selected_chunk": 1,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 2,
+          "total_segments": 4,
+          "resolved_segments": 3,
+          "unresolved_segments": 1,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "2x1": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_062__day_1__con_5__person_2_part3_chunk_0001",
+          "camera_person": 2,
+          "top_segment_ids": [
+            0,
+            1
+          ],
+          "selected_embedding_segment_ids": [
+            0
+          ],
+          "assignments": {
+            "0": 3,
+            "1": null
+          },
+          "resolved_assignments": {
+            "0": 3
+          },
+          "unknown_segments": [
+            1
+          ],
+          "missing_embedding_segment_ids": [
+            1
+          ],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "missing_embedding",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_057__day_1__con_5__person_1_part3_chunk_0001",
+              "expected_common_person": 3,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                1
+              ],
+              "local_segment_id": 0,
+              "other_segment_id": 0,
+              "top_similarity": 0.4660570025444031,
+              "top_margin": 0.15990906953811646
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "train",
+      "scene_key": "day_2__con_6",
+      "summary": {
+        "split": "train",
+        "scene_key": "day_2__con_6",
+        "num_input_clips": 3,
+        "num_loaded_clips": 3,
+        "camera_persons": [
+          1,
+          2,
+          3
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 3,
+        "total_segments": 6,
+        "resolved_segments": 3,
+        "unresolved_segments": 3,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "2x0": 1,
+          "2x1": 1,
+          "0x1": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 3,
+        "selected_chunk": 3,
+        "num_chunk_attempts": 3,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 0,
+            "unresolved_segments": 6,
+            "conflict_segments": 3,
+            "matrix_shape_counts": {
+              "2x1": 2,
+              "1x1": 1
+            }
+          },
+          {
+            "chunk": 2,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 1,
+            "matrix_shape_counts": {
+              "2x1": 1,
+              "2x2": 1,
+              "1x2": 1
+            }
+          },
+          {
+            "chunk": 3,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 3,
+            "unresolved_segments": 3,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "2x0": 1,
+              "2x1": 1,
+              "0x1": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_2__con_6",
+      "selected_chunk": 3,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 0,
+          "unresolved_segments": 6,
+          "conflict_segments": 3,
+          "matrix_shape_counts": {
+            "2x1": 2,
+            "1x1": 1
+          }
+        },
+        {
+          "chunk": 2,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 1,
+          "matrix_shape_counts": {
+            "2x1": 1,
+            "2x2": 1,
+            "1x2": 1
+          }
+        },
+        {
+          "chunk": 3,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 3,
+          "unresolved_segments": 3,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "2x0": 1,
+            "2x1": 1,
+            "0x1": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_096__day_2__con_6__person_1_chunk_0003",
+          "camera_person": 1,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [
+            1,
+            0
+          ],
+          "assignments": {
+            "1": 2,
+            "0": 3
+          },
+          "resolved_assignments": {
+            "1": 2,
+            "0": 3
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_097__day_2__con_6__person_2_chunk_0003",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_098__day_2__con_6__person_3_chunk_0003",
+              "expected_common_person": 2,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                1
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 0,
+              "top_similarity": 0.653674840927124,
+              "top_margin": 0.328365683555603
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_097__day_2__con_6__person_2_chunk_0003",
+          "camera_person": 2,
+          "top_segment_ids": [
+            0,
+            1
+          ],
+          "selected_embedding_segment_ids": [],
+          "assignments": {
+            "0": null,
+            "1": null
+          },
+          "resolved_assignments": {},
+          "unknown_segments": [
+            0,
+            1
+          ],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [
+            0,
+            1
+          ],
+          "conflicts": [],
+          "representative_count": 0,
+          "reasons": [
+            "empty_similarity_matrix",
+            "low_embedding_count",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_096__day_2__con_6__person_1_chunk_0003",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_098__day_2__con_6__person_3_chunk_0003",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                1
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_098__day_2__con_6__person_3_chunk_0003",
+          "camera_person": 3,
+          "top_segment_ids": [
+            0,
+            2
+          ],
+          "selected_embedding_segment_ids": [
+            0
+          ],
+          "assignments": {
+            "0": 2,
+            "2": null
+          },
+          "resolved_assignments": {
+            "0": 2
+          },
+          "unknown_segments": [
+            2
+          ],
+          "missing_embedding_segment_ids": [
+            2
+          ],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 1,
+          "reasons": [
+            "empty_similarity_matrix",
+            "missing_embedding",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_096__day_2__con_6__person_1_chunk_0003",
+              "expected_common_person": 2,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                1
+              ],
+              "local_segment_id": 0,
+              "other_segment_id": 1,
+              "top_similarity": 0.653674840927124,
+              "top_margin": 0.328365683555603
+            },
+            {
+              "other_clip": "vid_097__day_2__con_6__person_2_chunk_0003",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                1
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "train",
+      "scene_key": "day_4__con_6",
+      "summary": {
+        "split": "train",
+        "scene_key": "day_4__con_6",
+        "num_input_clips": 3,
+        "num_loaded_clips": 3,
+        "camera_persons": [
+          1,
+          2,
+          3
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 3,
+        "total_segments": 6,
+        "resolved_segments": 4,
+        "unresolved_segments": 2,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "2x0": 1,
+          "2x2": 1,
+          "0x2": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 2,
+        "selected_chunk": 2,
+        "num_chunk_attempts": 2,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 2,
+            "unresolved_segments": 4,
+            "conflict_segments": 1,
+            "matrix_shape_counts": {
+              "1x2": 1,
+              "1x1": 1,
+              "2x1": 1
+            }
+          },
+          {
+            "chunk": 2,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "2x0": 1,
+              "2x2": 1,
+              "0x2": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_4__con_6",
+      "selected_chunk": 2,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 2,
+          "unresolved_segments": 4,
+          "conflict_segments": 1,
+          "matrix_shape_counts": {
+            "1x2": 1,
+            "1x1": 1,
+            "2x1": 1
+          }
+        },
+        {
+          "chunk": 2,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "2x0": 1,
+            "2x2": 1,
+            "0x2": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_133__day_4__con_6__person_1_chunk_0002",
+          "camera_person": 1,
+          "top_segment_ids": [
+            7,
+            6
+          ],
+          "selected_embedding_segment_ids": [
+            7,
+            6
+          ],
+          "assignments": {
+            "7": 3,
+            "6": 2
+          },
+          "resolved_assignments": {
+            "7": 3,
+            "6": 2
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_134__day_4__con_6__person_2_chunk_0002",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_135__day_4__con_6__person_3_chunk_0002",
+              "expected_common_person": 2,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                2
+              ],
+              "local_segment_id": 6,
+              "other_segment_id": 3,
+              "top_similarity": 0.6726633906364441,
+              "top_margin": 0.031955838203430176
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_134__day_4__con_6__person_2_chunk_0002",
+          "camera_person": 2,
+          "top_segment_ids": [
+            0,
+            1
+          ],
+          "selected_embedding_segment_ids": [],
+          "assignments": {
+            "0": null,
+            "1": null
+          },
+          "resolved_assignments": {},
+          "unknown_segments": [
+            0,
+            1
+          ],
+          "missing_embedding_segment_ids": [
+            1
+          ],
+          "low_embedding_count_segment_ids": [
+            0
+          ],
+          "conflicts": [],
+          "representative_count": 0,
+          "reasons": [
+            "empty_similarity_matrix",
+            "low_embedding_count",
+            "missing_embedding",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_133__day_4__con_6__person_1_chunk_0002",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                2,
+                0
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_135__day_4__con_6__person_3_chunk_0002",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_135__day_4__con_6__person_3_chunk_0002",
+          "camera_person": 3,
+          "top_segment_ids": [
+            0,
+            3
+          ],
+          "selected_embedding_segment_ids": [
+            0,
+            3
+          ],
+          "assignments": {
+            "0": 1,
+            "3": 2
+          },
+          "resolved_assignments": {
+            "0": 1,
+            "3": 2
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_133__day_4__con_6__person_1_chunk_0002",
+              "expected_common_person": 2,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                2
+              ],
+              "local_segment_id": 3,
+              "other_segment_id": 6,
+              "top_similarity": 0.6726633906364441,
+              "top_margin": 0.031955838203430176
+            },
+            {
+              "other_clip": "vid_134__day_4__con_6__person_2_chunk_0002",
+              "expected_common_person": 1,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "split": "train",
+      "scene_key": "day_6__con_3",
+      "summary": {
+        "split": "train",
+        "scene_key": "day_6__con_3",
+        "num_input_clips": 3,
+        "num_loaded_clips": 3,
+        "camera_persons": [
+          1,
+          2,
+          3
+        ],
+        "duplicate_cameras": {},
+        "num_pairs": 3,
+        "total_segments": 6,
+        "resolved_segments": 4,
+        "unresolved_segments": 2,
+        "conflict_segments": 0,
+        "matrix_shape_counts": {
+          "0x2": 2,
+          "2x2": 1
+        },
+        "one_by_one_threshold": 0.7,
+        "min_embeddings": 10,
+        "chunk": 3,
+        "selected_chunk": 3,
+        "num_chunk_attempts": 3,
+        "fallback_status": "resolved_without_conflict",
+        "chunk_attempts": [
+          {
+            "chunk": 1,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 1,
+            "matrix_shape_counts": {
+              "1x2": 2,
+              "2x2": 1
+            }
+          },
+          {
+            "chunk": 2,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 1,
+            "matrix_shape_counts": {
+              "2x2": 1,
+              "2x1": 2
+            }
+          },
+          {
+            "chunk": 3,
+            "num_loaded_clips": 3,
+            "total_segments": 6,
+            "resolved_segments": 4,
+            "unresolved_segments": 2,
+            "conflict_segments": 0,
+            "matrix_shape_counts": {
+              "0x2": 2,
+              "2x2": 1
+            }
+          }
+        ]
+      },
+      "scene_dir": "/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_6__con_3",
+      "selected_chunk": 3,
+      "fallback_status": "resolved_without_conflict",
+      "chunk_attempts": [
+        {
+          "chunk": 1,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 1,
+          "matrix_shape_counts": {
+            "1x2": 2,
+            "2x2": 1
+          }
+        },
+        {
+          "chunk": 2,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 1,
+          "matrix_shape_counts": {
+            "2x2": 1,
+            "2x1": 2
+          }
+        },
+        {
+          "chunk": 3,
+          "num_loaded_clips": 3,
+          "total_segments": 6,
+          "resolved_segments": 4,
+          "unresolved_segments": 2,
+          "conflict_segments": 0,
+          "matrix_shape_counts": {
+            "0x2": 2,
+            "2x2": 1
+          }
+        }
+      ],
+      "problem_clips": [
+        {
+          "clip_name": "vid_164__day_6__con_3__person_1_chunk_0003",
+          "camera_person": 1,
+          "top_segment_ids": [
+            0,
+            1
+          ],
+          "selected_embedding_segment_ids": [],
+          "assignments": {
+            "0": null,
+            "1": null
+          },
+          "resolved_assignments": {},
+          "unknown_segments": [
+            0,
+            1
+          ],
+          "missing_embedding_segment_ids": [
+            0
+          ],
+          "low_embedding_count_segment_ids": [
+            1
+          ],
+          "conflicts": [],
+          "representative_count": 0,
+          "reasons": [
+            "empty_similarity_matrix",
+            "low_embedding_count",
+            "missing_embedding",
+            "unresolved_assignment"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_165__day_6__con_3__person_2_chunk_0003",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_166__day_6__con_3__person_3_chunk_0003",
+              "expected_common_person": 2,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_165__day_6__con_3__person_2_chunk_0003",
+          "camera_person": 2,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [
+            1,
+            0
+          ],
+          "assignments": {
+            "1": 1,
+            "0": 3
+          },
+          "resolved_assignments": {
+            "1": 1,
+            "0": 3
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_164__day_6__con_3__person_1_chunk_0003",
+              "expected_common_person": 3,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_166__day_6__con_3__person_3_chunk_0003",
+              "expected_common_person": 1,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                2
+              ],
+              "local_segment_id": 1,
+              "other_segment_id": 0,
+              "top_similarity": 0.9260783791542053,
+              "top_margin": 0.3667483329772949
+            }
+          ]
+        },
+        {
+          "clip_name": "vid_166__day_6__con_3__person_3_chunk_0003",
+          "camera_person": 3,
+          "top_segment_ids": [
+            1,
+            0
+          ],
+          "selected_embedding_segment_ids": [
+            1,
+            0
+          ],
+          "assignments": {
+            "1": 2,
+            "0": 1
+          },
+          "resolved_assignments": {
+            "1": 2,
+            "0": 1
+          },
+          "unknown_segments": [],
+          "missing_embedding_segment_ids": [],
+          "low_embedding_count_segment_ids": [],
+          "conflicts": [],
+          "representative_count": 2,
+          "reasons": [
+            "empty_similarity_matrix"
+          ],
+          "pair_evidence": [
+            {
+              "other_clip": "vid_164__day_6__con_3__person_1_chunk_0003",
+              "expected_common_person": 2,
+              "accepted": false,
+              "reason": "empty_similarity_matrix",
+              "matrix_shape": [
+                0,
+                2
+              ],
+              "local_segment_id": null,
+              "other_segment_id": null,
+              "top_similarity": null,
+              "top_margin": null
+            },
+            {
+              "other_clip": "vid_165__day_6__con_3__person_2_chunk_0003",
+              "expected_common_person": 1,
+              "accepted": true,
+              "reason": "accepted",
+              "matrix_shape": [
+                2,
+                2
+              ],
+              "local_segment_id": 0,
+              "other_segment_id": 1,
+              "top_similarity": 0.9260783791542053,
+              "top_margin": 0.3667483329772949
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

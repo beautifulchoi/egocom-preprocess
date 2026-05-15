@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Person Face Embedding Extraction Explanation</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --ink: #1d2430;
+      --muted: #5e6877;
+      --line: #d9dee7;
+      --panel: #ffffff;
+      --accent: #2563eb;
+      --good: #047857;
+      --warn: #b45309;
+      --code: #eef2f7;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 1020px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 22px;
+      margin-top: 34px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-top: 20px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    code {
+      background: var(--code);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      background: #101828;
+      color: #f8fafc;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 12px;
+      background: var(--panel);
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eef2f7;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 860px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #eff6ff;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+
+    .success {
+      border-left: 4px solid var(--good);
+      background: #ecfdf5;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warn);
+      background: #fff7ed;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 112px;
+    }
+
+    .step strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .diagram {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-top: 16px;
+      padding: 16px;
+    }
+
+    .diagram svg {
+      display: block;
+      width: 100%;
+      max-width: 900px;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 2px solid currentColor;
+      flex: 0 0 auto;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .mini-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .mini-card h3 {
+      margin-top: 0;
+    }
+
+    @media (max-width: 900px) {
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .legend,
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Person Face Embedding Extraction</h1>
+  <p class="lead">
+    This page explains how <code>/home/prj/egocom_preprocess/extract_person_embeding.py</code>
+    extracts face identity embeddings from refined person masks. The script uses InsightFace only
+    to find face boxes, then uses StyleID to create the final embedding vectors.
+  </p>
+
+  <section class="panel">
+    <h2>Goal</h2>
+    <p>
+      Each refined mask file contains person segment ids over video frames. The goal is to produce
+      a face-style embedding for each segment id when the person's face is visible. These embeddings
+      can be used later as compact identity or appearance features for the visible person track.
+    </p>
+    <p>
+      The script does not use InsightFace recognition embeddings. It only uses InsightFace face
+      detection. The embedding is generated by StyleID, implemented as a Hugging Face
+      <code>CLIPModel</code>.
+    </p>
+  </section>
+
+  <h2>Inputs and Outputs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Default path or value</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Refined mask</td>
+        <td><code>{split}/refined_mask/{video_name}/mask.pt</code></td>
+        <td>Stores frame index to segment id to binary mask.</td>
+      </tr>
+      <tr>
+        <td>Frames</td>
+        <td><code>{split}/frame/{video_name}/*.jpg</code></td>
+        <td>Original RGB frames that are masked and cropped before face detection.</td>
+      </tr>
+      <tr>
+        <td>Embedding output</td>
+        <td><code>{split}/person_embeding/{video_name}/embeding.pt</code></td>
+        <td>Dictionary from valid segment id to tensor shaped <code>[num_embeddings, 768]</code>.</td>
+      </tr>
+      <tr>
+        <td>Summary output</td>
+        <td><code>{split}/person_embeding/{video_name}/summary.json</code></td>
+        <td>Human-readable processing statistics, validity flags, devices, and model names.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    A segment id is saved in <code>embeding.pt</code> only if at least one valid face embedding was
+    extracted. If a segment never has a detected face, it is omitted from <code>embeding.pt</code>
+    and listed in <code>summary.json</code> as an invalid segment.
+  </div>
+
+  <h2>Pipeline</h2>
+  <div class="flow">
+    <div class="step">
+      <strong>1. Load masks</strong>
+      Read <code>mask.pt</code> safely with <code>torch.load(..., weights_only=True)</code> and
+      normalize masks into boolean NumPy arrays.
+    </div>
+    <div class="step">
+      <strong>2. Mask frame</strong>
+      For each frame and segment id, resize the mask if needed and zero out pixels outside the
+      person mask.
+    </div>
+    <div class="step">
+      <strong>3. Detect face</strong>
+      Run InsightFace on the masked person crop. If multiple faces are found, keep the one with
+      the best overlap with the person mask.
+    </div>
+    <div class="step">
+      <strong>4. Embed crop</strong>
+      Crop the selected face, process it with StyleID image preprocessing, and run
+      <code>model.get_image_features</code>.
+    </div>
+    <div class="step">
+      <strong>5. Save result</strong>
+      Concatenate all valid embeddings per segment id and write the tensor dictionary plus JSON
+      summary.
+    </div>
+  </div>
+
+  <h2>What Gets Cropped</h2>
+  <p>
+    There are two different crops in the script. The first crop is used only to make face detection
+    easier. The second crop is the actual image sent to StyleID for embedding extraction.
+  </p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 470" role="img" aria-labelledby="crop-diagram-title crop-diagram-desc">
+      <title id="crop-diagram-title">Person padding and face padding crop diagram</title>
+      <desc id="crop-diagram-desc">
+        Diagram showing a full frame, a person mask box expanded by person padding for face
+        detection, and a face box expanded by face padding for StyleID embedding.
+      </desc>
+
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#475569"></path>
+        </marker>
+        <pattern id="maskPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+          <path d="M0 10 L10 0" stroke="#16a34a" stroke-width="2" opacity="0.45"></path>
+        </pattern>
+      </defs>
+
+      <rect x="30" y="60" width="300" height="250" fill="#e5e7eb" stroke="#475569" stroke-width="2"></rect>
+      <text x="30" y="40" fill="#1d2430" font-size="18" font-weight="700">A. Full frame</text>
+      <text x="44" y="290" fill="#475569" font-size="13">Original video frame</text>
+
+      <path d="M178 120 C138 146, 136 230, 184 258 C239 291, 289 245, 260 178 C246 146, 220 112, 178 120 Z"
+            fill="url(#maskPattern)" stroke="#16a34a" stroke-width="4"></path>
+      <rect x="136" y="112" width="150" height="162" fill="none" stroke="#16a34a" stroke-width="3" stroke-dasharray="8 6"></rect>
+      <text x="132" y="102" fill="#047857" font-size="13" font-weight="700">person mask bbox</text>
+
+      <rect x="123" y="99" width="176" height="188" fill="none" stroke="#2563eb" stroke-width="4"></rect>
+      <text x="114" y="322" fill="#2563eb" font-size="13" font-weight="700">expanded by person_padding</text>
+
+      <rect x="190" y="132" width="45" height="45" fill="none" stroke="#f97316" stroke-width="3"></rect>
+      <text x="184" y="126" fill="#c2410c" font-size="13" font-weight="700">detected face</text>
+
+      <line x1="340" y1="184" x2="410" y2="184" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"></line>
+      <text x="350" y="166" fill="#475569" font-size="13">crop and mask</text>
+
+      <rect x="430" y="80" width="220" height="210" fill="#111827" stroke="#2563eb" stroke-width="4"></rect>
+      <text x="430" y="40" fill="#1d2430" font-size="18" font-weight="700">B. Detector input</text>
+      <text x="430" y="310" fill="#475569" font-size="13">Only the padded person crop is searched</text>
+      <path d="M492 110 C466 130, 465 238, 532 264 C604 293, 635 213, 598 146 C575 106, 526 86, 492 110 Z"
+            fill="#d1fae5" stroke="#16a34a" stroke-width="3"></path>
+      <rect x="518" y="126" width="58" height="58" fill="none" stroke="#f97316" stroke-width="4"></rect>
+      <text x="505" y="74" fill="#f97316" font-size="13" font-weight="700">InsightFace detection box</text>
+
+      <line x1="660" y1="184" x2="730" y2="184" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"></line>
+      <text x="670" y="166" fill="#475569" font-size="13">map back</text>
+
+      <rect x="750" y="110" width="105" height="105" fill="#fee2e2" stroke="#dc2626" stroke-width="4"></rect>
+      <rect x="769" y="129" width="67" height="67" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="8 6"></rect>
+      <text x="730" y="40" fill="#1d2430" font-size="18" font-weight="700">C. StyleID input</text>
+      <text x="722" y="238" fill="#dc2626" font-size="13" font-weight="700">face box expanded by face_padding</text>
+      <text x="734" y="258" fill="#475569" font-size="13">This final face crop is embedded</text>
+
+      <line x1="802" y1="220" x2="802" y2="292" stroke="#475569" stroke-width="3" marker-end="url(#arrow)"></line>
+      <rect x="714" y="310" width="176" height="74" fill="#eff6ff" stroke="#2563eb" stroke-width="2"></rect>
+      <text x="738" y="340" fill="#1d2430" font-size="14" font-weight="700">StyleID CLIP image encoder</text>
+      <text x="760" y="362" fill="#475569" font-size="13">normalized 768-d vector</text>
+    </svg>
+
+    <div class="legend">
+      <span><i class="swatch" style="color:#16a34a"></i>Person mask and mask bbox</span>
+      <span><i class="swatch" style="color:#2563eb"></i><code>person_padding</code> detector crop</span>
+      <span><i class="swatch" style="color:#f97316"></i>InsightFace face box</span>
+      <span><i class="swatch" style="color:#dc2626"></i><code>face_padding</code> StyleID crop</span>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="mini-card">
+      <h3><code>person_padding</code></h3>
+      <p>
+        This expands the person-mask bounding box before face detection. It helps when the mask is
+        tight around the body or clips the edge of the face. Pixels outside the mask are still set
+        to black, so the detector mainly sees the current person.
+      </p>
+      <p>
+        This padding does <strong>not</strong> directly decide the final StyleID image. It only
+        changes where InsightFace searches for a face.
+      </p>
+    </div>
+    <div class="mini-card">
+      <h3><code>face_padding</code></h3>
+      <p>
+        This expands the selected face detection box after detection. The resulting padded face crop
+        is the image passed to StyleID. Increasing this value includes more hair, jaw, and nearby
+        context. Decreasing it makes the crop tighter around the detected face.
+      </p>
+    </div>
+  </div>
+
+  <h2>Detailed Steps</h2>
+  <h3>Mask loading</h3>
+  <p>
+    The mask file is expected to be a dictionary where each frame index maps to a dictionary of
+    segment ids. Each segment id maps to a 2D binary mask. Empty masks and malformed masks are
+    ignored. The script preserves the segment ids from the mask file.
+  </p>
+
+  <h3>Person crop and masked image</h3>
+  <p>
+    For each mask instance, the script computes the person bounding box and expands it by
+    <code>--person_padding</code>. The frame is cropped to this region, and every pixel outside
+    the person mask is set to black. Face detection is run on this masked crop instead of the
+    full frame, so the detector is biased toward the current segment id.
+  </p>
+  <p>
+    Example: if the mask bbox is <code>x=100..220</code>, <code>y=80..300</code>, the larger
+    dimension is <code>220</code> pixels. With <code>--person_padding 0.08</code>, the crop is
+    expanded by about <code>18</code> pixels on each side, then clipped to the image boundary.
+  </p>
+
+  <h3>Face detection</h3>
+  <p>
+    The default InsightFace model pack is <code>antelopev2</code>. The script loads only the
+    detection module, currently <code>scrfd_10g_bnkps.onnx</code>. Landmark, age, gender, and
+    InsightFace recognition modules are ignored because they are not needed for this task.
+  </p>
+  <p>
+    If more than one face is detected in the crop, the script selects the face with the largest
+    overlap against the person mask. The detector confidence score is used as a tie breaker.
+    Detections below <code>--min_face_score</code> are ignored.
+  </p>
+  <p>
+    The face box returned by InsightFace is local to the padded person crop. The script converts it
+    back into full-frame coordinates before making the final StyleID crop. This avoids embedding a
+    crop from the masked black-background image. StyleID receives a crop from the original frame.
+  </p>
+
+  <h3>StyleID embedding</h3>
+  <p>
+    The face crop is converted to RGB PIL format and embedded with:
+  </p>
+  <pre><code>model = CLIPModel.from_pretrained("kwanY/styleid")
+processor = CLIPImageProcessor.from_pretrained("kwanY/styleid")
+emb = model.get_image_features(**inputs)
+emb = emb / emb.norm(dim=-1, keepdim=True)</code></pre>
+  <p>
+    <code>CLIPImageProcessor</code> is used because the script only needs image preprocessing for
+    <code>get_image_features</code>. The output embedding dimension is recorded in
+    <code>summary.json</code>; with the current StyleID model it is <code>768</code>.
+  </p>
+  <p>
+    Each successful face crop produces one normalized row vector. For a segment id, all row vectors
+    are stacked together in frame order. The final tensor shape is therefore
+    <code>[number_of_successful_face_frames, 768]</code>.
+  </p>
+
+  <h3>No-face segments</h3>
+  <p>
+    A segment may have masks but no detected face. This can happen when the head is outside the
+    frame, the face is turned away, the mask covers only the body, or the face is too small or
+    occluded. These segments are not saved as zero vectors. They are omitted from
+    <code>embeding.pt</code> and listed in <code>invalid_segment_ids</code> in the summary.
+  </p>
+
+  <h2>Model and Device Behavior</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Model</th>
+        <th>Device behavior</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Face detector</td>
+        <td><code>InsightFace antelopev2</code>, detection module only</td>
+        <td>
+          Uses ONNXRuntime. If <code>--device cuda</code> or <code>--device auto</code> selects
+          CUDA, the script requires <code>CUDAExecutionProvider</code>. If it is missing, the
+          script fails instead of silently using CPU.
+        </td>
+      </tr>
+      <tr>
+        <td>Embedding model</td>
+        <td><code>kwanY/styleid</code></td>
+        <td>
+          Uses PyTorch. The model is moved to the selected device and the saved summary records
+          <code>styleid_device</code>.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="success">
+    The summary records <code>insightface_detector_providers</code> and <code>styleid_device</code>,
+    so each output folder shows whether detector and embedding models actually used GPU.
+  </div>
+
+  <h2>Output Format</h2>
+  <h3><code>embeding.pt</code></h3>
+  <p>
+    This file is saved with <code>torch.save</code>. It contains only valid segment ids:
+  </p>
+  <pre><code>{
+  0: tensor with shape [num_valid_faces_for_segment_0, 768],
+  1: tensor with shape [num_valid_faces_for_segment_1, 768]
+}</code></pre>
+  <p>
+    The number of rows can be different for each segment because faces are visible in different
+    numbers of frames.
+  </p>
+
+  <h2>Concrete Example</h2>
+  <p>
+    A full-frame run on
+    <code>vid_001__day_1__con_1__person_1_part1_chunk_0001</code> produced this output:
+  </p>
+  <pre><code>embedding keys: [0, 1]
+segment 0 shape: [218, 768]
+segment 1 shape: [243, 768]
+invalid_segment_ids: [2]
+num_omitted_invalid_segments: 1</code></pre>
+  <p>
+    This means segment ids <code>0</code> and <code>1</code> had visible detected faces in many
+    frames, so their embeddings were saved. Segment id <code>2</code> had no valid face embedding,
+    so it was not saved in <code>embeding.pt</code> and was recorded only in the JSON summary.
+  </p>
+  <p>
+    The corresponding summary also records:
+  </p>
+  <pre><code>insightface_detector_providers: ["CUDAExecutionProvider", "CPUExecutionProvider"]
+styleid_device: "cuda:0"</code></pre>
+
+  <h3><code>summary.json</code></h3>
+  <p>
+    Important fields include:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>valid_segment_ids</code></td>
+        <td>Segment ids saved in <code>embeding.pt</code>.</td>
+      </tr>
+      <tr>
+        <td><code>invalid_segment_ids</code></td>
+        <td>Segment ids with no valid face embedding.</td>
+      </tr>
+      <tr>
+        <td><code>num_omitted_invalid_segments</code></td>
+        <td>How many segment ids were omitted from <code>embeding.pt</code>.</td>
+      </tr>
+      <tr>
+        <td><code>per_segment</code></td>
+        <td>Per-id counts for mask frames, processed frames, detections, no-face frames, and embedding validity.</td>
+      </tr>
+      <tr>
+        <td><code>insightface_detector_providers</code></td>
+        <td>Actual ONNXRuntime providers for InsightFace detection.</td>
+      </tr>
+      <tr>
+        <td><code>styleid_device</code></td>
+        <td>Actual PyTorch device for the StyleID model.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Common Commands</h2>
+  <p>Run on one explicit mask file and write to <code>person_face_emb</code>:</p>
+  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  --mask_path /home/prj/data/egocom_holdout/1min/train/refined_mask/vid_001__day_1__con_1__person_1_part1_chunk_0001/mask.pt \
+  --output_root /home/prj/data/egocom_holdout/1min/train/person_face_emb \
+  --overwrite</code></pre>
+
+  <p>Run on one named video using the default dataset layout:</p>
+  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  --split train \
+  --video vid_001__day_1__con_1__person_1_part1_chunk_0001 \
+  --overwrite</code></pre>
+
+  <p>Run a quick smoke test on only the first 30 frames:</p>
+  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  --mask_path /path/to/mask.pt \
+  --frame_dir /path/to/frame_dir \
+  --output_dir /tmp/person_face_emb_smoke \
+  --max_frames 30 \
+  --overwrite</code></pre>
+
+  <h2>Useful Parameters</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Default</th>
+        <th>Effect</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--sample_every</code></td>
+        <td><code>1</code></td>
+        <td>Process every Nth frame. Use a larger value for faster approximate extraction.</td>
+      </tr>
+      <tr>
+        <td><code>--max_frames</code></td>
+        <td>not set</td>
+        <td>Stop after this many frames. Useful for smoke tests.</td>
+      </tr>
+      <tr>
+        <td><code>--det_size</code></td>
+        <td><code>640</code></td>
+        <td>InsightFace detector input size. Larger can help small faces but costs more memory and time.</td>
+      </tr>
+      <tr>
+        <td><code>--min_face_score</code></td>
+        <td><code>0.3</code></td>
+        <td>Minimum detector confidence required before a face is embedded.</td>
+      </tr>
+      <tr>
+        <td><code>--person_padding</code></td>
+        <td><code>0.08</code></td>
+        <td>Extra area around the person mask box before running face detection.</td>
+      </tr>
+      <tr>
+        <td><code>--face_padding</code></td>
+        <td><code>0.25</code></td>
+        <td>Extra area around the selected face before StyleID embedding.</td>
+      </tr>
+      <tr>
+        <td><code>--device</code></td>
+        <td><code>auto</code></td>
+        <td>Selects CUDA when PyTorch CUDA is available, otherwise CPU.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    If <code>--device auto</code> selects CUDA but ONNXRuntime does not have
+    <code>CUDAExecutionProvider</code>, the script raises an error. Install a compatible
+    <code>onnxruntime-gpu</code> package or run with <code>--device cpu</code>.
+  </div>
+</main>
+</body>
+</html>

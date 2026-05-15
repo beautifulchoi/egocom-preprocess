@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Person Mapping Outputs Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212f;
+      --muted: #586474;
+      --line: #cfd6df;
+      --soft: #f6f8fb;
+      --soft-green: #edf6f2;
+      --soft-amber: #fbf3e8;
+      --soft-blue: #edf4fb;
+      --accent: #236b7d;
+      --code: #eef1f5;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 28px 58px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 36px 0 12px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 8px 0 12px;
+      color: var(--muted);
+      max-width: 960px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      background: var(--code);
+      border-radius: 5px;
+      padding: 1px 5px;
+      white-space: nowrap;
+      color: #17212f;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 24px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--soft);
+      color: #253244;
+    }
+    .lead {
+      font-size: 17px;
+      max-width: 980px;
+    }
+    .note {
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      padding: 10px 14px;
+      margin: 16px 0 22px;
+      max-width: 980px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 16px 0 22px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fff;
+    }
+    .card h3 {
+      margin-top: 0;
+    }
+    .diagram {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+      margin: 16px 0 24px;
+    }
+    .diagram svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .caption {
+      padding: 8px 12px 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--soft-blue);
+      color: #284b63;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    @media (max-width: 860px) {
+      main {
+        padding: 24px 16px 42px;
+      }
+      .cards {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        font-size: 27px;
+      }
+      table {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Person Mapping Outputs Guide</h1>
+  <p class="lead">
+    This page is the short index for the person-face mapping artifacts. Use it to decide which JSON or HTML file to open
+    without reading every generated report.
+  </p>
+
+  <div class="note">
+    <strong>Main result for dataset construction:</strong>
+    read <code>{split}/person_face_mapping/{scene_key}/remap_all_chunks.json</code>. It contains the final segment chains:
+    each real person id points to the primary segment id and any additional merged segment ids for every chunk.
+  </div>
+
+  <h2>Output Flow</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1120 330" role="img" aria-label="Person mapping report flow">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#596675"></path>
+        </marker>
+      </defs>
+      <rect x="36" y="68" width="210" height="86" rx="8" fill="#edf4fb" stroke="#9bb8cf"></rect>
+      <text x="60" y="101" font-size="16" font-weight="700">raw per-chunk inputs</text>
+      <text x="60" y="126" font-size="13">refined_mask + face emb</text>
+
+      <rect x="306" y="68" width="230" height="86" rx="8" fill="#edf6f2" stroke="#9fb8ac"></rect>
+      <text x="330" y="101" font-size="16" font-weight="700">selected-chunk mapping</text>
+      <text x="330" y="126" font-size="13">choose conflict-free chunk</text>
+
+      <rect x="596" y="68" width="220" height="86" rx="8" fill="#fbf3e8" stroke="#d5b58f"></rect>
+      <text x="620" y="101" font-size="16" font-weight="700">all-chunk remapping</text>
+      <text x="620" y="126" font-size="13">track real person ids</text>
+
+      <rect x="876" y="68" width="208" height="86" rx="8" fill="#f6f8fb" stroke="#cfd6df"></rect>
+      <text x="900" y="101" font-size="16" font-weight="700">merged report</text>
+      <text x="900" y="126" font-size="13">only disconnected ids</text>
+
+      <line x1="246" y1="111" x2="306" y2="111" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="536" y1="111" x2="596" y2="111" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="816" y1="111" x2="876" y2="111" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <rect x="306" y="210" width="230" height="70" rx="8" fill="#fff" stroke="#cfd6df"></rect>
+      <text x="330" y="238" font-size="14" font-weight="700">mapping.json</text>
+      <text x="330" y="260" font-size="12">first stable person labels</text>
+
+      <rect x="596" y="210" width="220" height="70" rx="8" fill="#fff" stroke="#cfd6df"></rect>
+      <text x="620" y="238" font-size="14" font-weight="700">remap_all_chunks.json</text>
+      <text x="620" y="260" font-size="12">final dataset chains</text>
+
+      <rect x="876" y="210" width="208" height="70" rx="8" fill="#fff" stroke="#cfd6df"></rect>
+      <text x="900" y="238" font-size="14" font-weight="700">merged_segments_report</text>
+      <text x="900" y="260" font-size="12">merged / total folders</text>
+
+      <line x1="421" y1="154" x2="421" y2="210" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="706" y1="154" x2="706" y2="210" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="980" y1="154" x2="980" y2="210" stroke="#596675" stroke-width="2" marker-end="url(#arrow)"></line>
+    </svg>
+    <div class="caption">
+      Operational mapping files are the JSON files under each scene directory. HTML reports are for inspection and debugging.
+    </div>
+  </div>
+
+  <h2>What To Open</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Build segmentation chains</h3>
+      <p>Open <code>remap_all_chunks.json</code> inside each scene mapping directory.</p>
+    </div>
+    <div class="card">
+      <h3>Check merge cases</h3>
+      <p>Open each split's <code>merged_segments_report.html</code>. It lists only folders where a person has more than one segment id.</p>
+    </div>
+    <div class="card">
+      <h3>Debug conflicts</h3>
+      <p>Open <code>report.html</code> at the split or scene level. It explains selected chunks, fallback chunks, conflicts, and similarity scores.</p>
+    </div>
+  </div>
+
+  <h2>Dataset Root Reports</h2>
+  <table>
+    <thead>
+      <tr><th>Path</th><th>Use</th><th>Keep or Ignore</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/home/prj/data/egocom_holdout/1min/person_face_mapping_report.html</code></td>
+        <td>Global selected-chunk mapping status across all splits. Useful for checking unresolved conflicts or fallback behavior.</td>
+        <td>Inspection only.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/data/egocom_holdout/1min/person_face_mapping_report.json</code></td>
+        <td>Machine-readable version of the global selected-chunk mapping report.</td>
+        <td>Inspection or automated checks.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/data/egocom_holdout/1min/person_face_remap_all_chunks_report.html</code></td>
+        <td>Global all-chunk remapping summary, including total scenes, mapped chunks, visualizations, and merged groups.</td>
+        <td>High-level inspection.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/data/egocom_holdout/1min/person_face_remap_all_chunks_summary.json</code></td>
+        <td>Machine-readable aggregate from the all-chunk remap run.</td>
+        <td>Automated checks.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/data/egocom_holdout/1min/merged_segments_report_summary.json</code></td>
+        <td>Compact split summary. It reports <code>merge_counted_over_total_video</code>, for example <code>91 / 1789</code>.</td>
+        <td>Quick merged-case count.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Split-Level Reports</h2>
+  <table>
+    <thead>
+      <tr><th>Path Pattern</th><th>Meaning</th><th>When To Use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>{split}/person_face_mapping/report.html</code></td>
+        <td>Split-wide selected-chunk mapping report. Shows which scenes resolved cleanly and why fallback chunks were used.</td>
+        <td>Use after running <code>map_person_face_embedding.py</code>.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/report.json</code></td>
+        <td>JSON form of the same selected-chunk status.</td>
+        <td>Use for scripts or filtering scenes.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/merged_segments_report.html</code></td>
+        <td>Only lists remap visualization folders that contain merged segment indications. Header shows <code>merged folders / total folders</code>.</td>
+        <td>Use to inspect disconnected tracks that were assigned to the same real person.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/merged_segments_report.json</code></td>
+        <td>Machine-readable rows from the merged segment report.</td>
+        <td>Use to count or batch-open merge cases.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/remap_all_chunks_summary.json</code></td>
+        <td>Per-split aggregate from the all-chunk remap run.</td>
+        <td>Use for split-level validation.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Scene-Level Files</h2>
+  <table>
+    <thead>
+      <tr><th>Path Pattern</th><th>Meaning</th><th>Use For Dataset Construction?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/mapping.json</code></td>
+        <td>Compact mapping from the selected conflict-free chunk. It establishes the scene's real person labels and representative embeddings.</td>
+        <td>Usually no. It is the seed mapping, not every chunk.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/details.json</code></td>
+        <td>Detailed selected-chunk diagnostics, including chunk attempts, conflicts, and similarity scores where available.</td>
+        <td>No. Debugging only.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/summary.json</code></td>
+        <td>Small selected-chunk summary for the scene.</td>
+        <td>No. Status only.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/representative_embeddings.pt</code></td>
+        <td>Representative face embedding tensors selected from the stable chunk.</td>
+        <td>Indirectly. These are used by remapping, but the chain result is in <code>remap_all_chunks.json</code>.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/representative_crops/</code></td>
+        <td>Face/person crop images for visually checking the real person labels.</td>
+        <td>No. Visualization only.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/remap_all_chunks.json</code></td>
+        <td>Final compact mapping for all chunks. Contains <code>chunks</code>, <code>people</code>, <code>primary_segment_id</code>, and <code>merged_segment_ids</code>.</td>
+        <td><strong>Yes. This is the main chain file.</strong></td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/remap_all_chunks_details.json</code></td>
+        <td>Full remap scores, candidate decisions, overlap checks, and rejected merge candidates.</td>
+        <td>No. Debugging only.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/remap_representative_embeddings.pt</code></td>
+        <td>Representative embeddings for the remapped segment ids.</td>
+        <td>Optional, if you need embedding tensors for follow-up checks.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/remap_visualizations/{clip}/</code></td>
+        <td>Representative crop images per mapped person and segment id in each clip.</td>
+        <td>No. Visualization only.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene_key}/report.html</code></td>
+        <td>Scene-level selected-chunk report. It explains conflict reasons and fallback attempts for that scene.</td>
+        <td>No. Debugging only.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Guide Pages In This Directory</h2>
+  <table>
+    <thead>
+      <tr><th>Path</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/home/prj/egocom_preprocess/map_person_face_embedding_explanation.html</code></td>
+        <td>Explains the first selected-chunk mapping pass.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/egocom_preprocess/remap_person_face_all_chunks_explanation.html</code></td>
+        <td>Explains the all-chunk remapping pass and merge rule.</td>
+      </tr>
+      <tr>
+        <td><code>/home/prj/egocom_preprocess/person_face_report_outputs_guide.html</code></td>
+        <td>This short index of generated reports and result files.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Minimal Reading Order</h2>
+  <table>
+    <thead>
+      <tr><th>Goal</th><th>Open These Only</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Construct dataset chains</td>
+        <td><code>{split}/person_face_mapping/{scene_key}/remap_all_chunks.json</code></td>
+      </tr>
+      <tr>
+        <td>Check whether any disconnected tracks were merged</td>
+        <td><code>{split}/person_face_mapping/merged_segments_report.html</code></td>
+      </tr>
+      <tr>
+        <td>Understand why a scene needed fallback chunks</td>
+        <td><code>{split}/person_face_mapping/{scene_key}/report.html</code> and <code>details.json</code></td>
+      </tr>
+      <tr>
+        <td>Check the whole run quickly</td>
+        <td><code>/home/prj/data/egocom_holdout/1min/person_face_remap_all_chunks_report.html</code></td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

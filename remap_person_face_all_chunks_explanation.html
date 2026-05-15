@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom All-Chunk Person Remapping</title>
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: #17212f; background: #fff; }
+    main { max-width: 1120px; margin: 0 auto; padding: 34px 28px 56px; }
+    h1 { margin: 0 0 8px; font-size: 31px; letter-spacing: 0; }
+    h2 { margin: 34px 0 12px; font-size: 22px; letter-spacing: 0; }
+    p { color: #4f5b68; line-height: 1.55; }
+    code, pre { background: #eef1f5; border-radius: 5px; }
+    code { padding: 1px 5px; }
+    pre { padding: 13px 15px; overflow-x: auto; border: 1px solid #cfd6df; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 22px; font-size: 14px; }
+    th, td { border: 1px solid #cfd6df; padding: 8px 10px; vertical-align: top; text-align: left; }
+    th { background: #f5f7fa; }
+    .diagram { border: 1px solid #cfd6df; border-radius: 8px; overflow: hidden; margin: 16px 0 24px; background: #fbfcfe; }
+    .diagram svg { display: block; width: 100%; height: auto; }
+    .caption { padding: 8px 12px 12px; border-top: 1px solid #cfd6df; color: #5b6472; font-size: 13px; background: #fff; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom All-Chunk Person Remapping</h1>
+  <p>
+    <code>remap_person_face_all_chunks.py</code> uses the selected conflict-free chunk's representative embeddings as
+    fixed person prototypes, then remaps every chunk in the scene. It does not modify original mask files. If multiple
+    disconnected segment ids indicate the same real person, it records them as a merged group.
+  </p>
+
+  <pre>python /home/prj/egocom_preprocess/remap_person_face_all_chunks.py --split all_existing --save_vis --overwrite</pre>
+
+  <h2>Process</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1080 300" role="img" aria-label="All chunk remapping flow">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#5b6472"></path>
+        </marker>
+      </defs>
+      <rect x="40" y="92" width="200" height="86" rx="8" fill="#eaf2f8" stroke="#9bb8c9"></rect>
+      <text x="65" y="126" font-size="15" font-weight="700">selected chunk reps</text>
+      <text x="65" y="150" font-size="13">person prototypes</text>
+      <rect x="300" y="92" width="190" height="86" rx="8" fill="#f7f9fc" stroke="#cfd6df"></rect>
+      <text x="330" y="126" font-size="15" font-weight="700">all chunk tracks</text>
+      <text x="330" y="150" font-size="13">mean pooled segments</text>
+      <rect x="550" y="92" width="190" height="86" rx="8" fill="#eef5f2" stroke="#9fb8ac"></rect>
+      <text x="585" y="126" font-size="15" font-weight="700">best mapping</text>
+      <text x="585" y="150" font-size="13">one primary segment</text>
+      <rect x="800" y="92" width="230" height="86" rx="8" fill="#f8f0e8" stroke="#d5b58f"></rect>
+      <text x="825" y="126" font-size="15" font-weight="700">merge disconnected ids</text>
+      <text x="825" y="150" font-size="13">similar + non-overlap</text>
+      <line x1="240" y1="135" x2="300" y2="135" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="490" y1="135" x2="550" y2="135" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="740" y1="135" x2="800" y2="135" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"></line>
+    </svg>
+    <div class="caption">The remap pass records segment-id indications only; it never combines mask pixels.</div>
+  </div>
+
+  <h2>Merge Rule</h2>
+  <table>
+    <thead><tr><th>Condition</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Minimum face embeddings per segment</td><td><code>10</code></td></tr>
+      <tr><td>Candidate segment similarity</td><td><code>&gt;= 0.70</code></td></tr>
+      <tr><td>Candidate score gap from primary</td><td><code>&lt;= 0.10</code></td></tr>
+      <tr><td>Frame overlap with current group</td><td><code>&lt;= 5</code> frames</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Outputs</h2>
+  <table>
+    <thead><tr><th>File</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><code>remap_all_chunks.json</code></td><td>Compact per-chunk person-to-segment mapping and merged groups.</td></tr>
+      <tr><td><code>remap_all_chunks_details.json</code></td><td>All similarity scores, rejected merge candidates, frame ranges, and overlap counts.</td></tr>
+      <tr><td><code>remap_representative_embeddings.pt</code></td><td>Representative embedding tensors for mapped/remapped segments.</td></tr>
+      <tr><td><code>remap_visualizations/{clip}/person_{id}_segment_{segment}.jpg</code></td><td>Representative segment visualization per mapped segment.</td></tr>
+      <tr><td><code>person_face_remap_all_chunks_summary.json/html</code></td><td>Dataset-wide summary files at the data root.</td></tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

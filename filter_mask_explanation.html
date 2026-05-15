@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Depth-Based Mask Refinement Explanation</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --ink: #1d2430;
+      --muted: #5e6877;
+      --line: #d9dee7;
+      --panel: #ffffff;
+      --accent: #0f766e;
+      --warn: #b45309;
+      --code: #eef2f7;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 22px;
+      margin-top: 34px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-top: 20px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    code {
+      background: var(--code);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: Consolas, Menlo, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      background: #101828;
+      color: #f8fafc;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 820px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #ecfdf5;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warn);
+      background: #fff7ed;
+      padding: 12px 14px;
+      margin: 16px 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 12px;
+      background: var(--panel);
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eef2f7;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 94px;
+    }
+
+    .step strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .diagram-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+
+    .diagram {
+      min-width: 900px;
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .diagram text {
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .formula {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .flow {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Depth-Based Mask Refinement</h1>
+  <p class="lead">
+    This page explains how <code>/home/prj/egocom_preprocess/filter_mask.py</code>
+    filters SAM person masks using Depth Anything 3 depth maps. The important detail is
+    that filtering is done per frame and per segment id, not by deleting an id track everywhere.
+  </p>
+
+  <section class="panel">
+    <h2>Goal</h2>
+    <p>
+      SAM sometimes produces a person segment even when there is no real depth boundary between
+      the segment and the surrounding pixels. The script removes those weak segments from a copied
+      mask file while keeping the original <code>person_mask</code> files unchanged.
+    </p>
+    <p>
+      The output mask is saved at:
+    </p>
+    <pre><code>/home/prj/data/egocom_holdout/1min/{split}/refined_mask/{video_name}/mask.pt</code></pre>
+    <p>
+      Rejected examples are visualized in:
+    </p>
+    <pre><code>/home/prj/data/egocom_holdout/1min/{split}/refined_mask/{video_name}/vis/</code></pre>
+  </section>
+
+  <h2>Data Flow</h2>
+  <div class="flow">
+    <div class="step">
+      <strong>1. Load masks</strong>
+      Reads <code>person_mask/{video}/masks.pt</code>. The format is
+      <code>{frame_idx: {segment_id: bool_mask}}</code>.
+    </div>
+    <div class="step">
+      <strong>2. Load depth</strong>
+      Reads each matching DA3 depth map from
+      <code>da3/monocular/{video}/depth/{frame}.npy</code>.
+    </div>
+    <div class="step">
+      <strong>3. Score each instance</strong>
+      For each <code>(frame_idx, segment_id)</code>, compares mask depth to nearby outer depth.
+    </div>
+    <div class="step">
+      <strong>4. Save copy</strong>
+      Removes only rejected frame-level instances, then writes the copied refined mask.
+    </div>
+  </div>
+
+  <h2>Pipeline Diagram</h2>
+  <div class="diagram-card">
+    <svg class="diagram" viewBox="0 0 980 520" role="img" aria-label="Depth mask filtering pipeline diagram">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#334155"></path>
+        </marker>
+        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#94a3b8" flood-opacity="0.45"></feDropShadow>
+        </filter>
+      </defs>
+
+      <rect x="18" y="22" width="944" height="476" rx="10" fill="#f8fafc" stroke="#d9dee7"></rect>
+
+      <g filter="url(#shadow)">
+        <rect x="52" y="58" width="180" height="82" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="2"></rect>
+        <text x="142" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">Original masks</text>
+        <text x="142" y="110" text-anchor="middle" font-size="13" fill="#334155">frame -> id -> bool mask</text>
+        <text x="142" y="128" text-anchor="middle" font-size="12" fill="#64748b">person_mask/.../masks.pt</text>
+      </g>
+
+      <g filter="url(#shadow)">
+        <rect x="52" y="184" width="180" height="82" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="2"></rect>
+        <text x="142" y="212" text-anchor="middle" font-size="15" font-weight="700" fill="#2563eb">DA3 depth maps</text>
+        <text x="142" y="236" text-anchor="middle" font-size="13" fill="#334155">one .npy per frame</text>
+        <text x="142" y="254" text-anchor="middle" font-size="12" fill="#64748b">da3/monocular/.../depth</text>
+      </g>
+
+      <line x1="232" y1="99" x2="306" y2="160" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+      <line x1="232" y1="225" x2="306" y2="190" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <g filter="url(#shadow)">
+        <rect x="312" y="124" width="190" height="100" rx="8" fill="#ffffff" stroke="#475569" stroke-width="2"></rect>
+        <text x="407" y="152" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">For each frame/id</text>
+        <text x="407" y="176" text-anchor="middle" font-size="13" fill="#334155">resize mask to depth size</text>
+        <text x="407" y="195" text-anchor="middle" font-size="13" fill="#334155">make expanded outer ring</text>
+        <text x="407" y="214" text-anchor="middle" font-size="13" fill="#334155">ignore invalid/small regions</text>
+      </g>
+
+      <line x1="502" y1="174" x2="574" y2="174" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <g filter="url(#shadow)">
+        <rect x="584" y="74" width="326" height="204" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="2"></rect>
+        <text x="747" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#6d28d9">Depth discontinuity score</text>
+
+        <rect x="608" y="126" width="132" height="58" rx="6" fill="#f5f3ff" stroke="#c4b5fd"></rect>
+        <text x="674" y="149" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Global contrast</text>
+        <text x="674" y="169" text-anchor="middle" font-size="12" fill="#334155">mask median</text>
+        <text x="674" y="181" text-anchor="middle" font-size="12" fill="#334155">vs outer median</text>
+
+        <rect x="758" y="126" width="132" height="58" rx="6" fill="#f5f3ff" stroke="#c4b5fd"></rect>
+        <text x="824" y="149" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">Boundary evidence</text>
+        <text x="824" y="169" text-anchor="middle" font-size="12" fill="#334155">90th percentile</text>
+        <text x="824" y="181" text-anchor="middle" font-size="12" fill="#334155">if enough edge pixels</text>
+
+        <line x1="674" y1="184" x2="724" y2="220" stroke="#334155" stroke-width="1.6" marker-end="url(#arrow)"></line>
+        <line x1="824" y1="184" x2="770" y2="220" stroke="#334155" stroke-width="1.6" marker-end="url(#arrow)"></line>
+
+        <rect x="684" y="220" width="126" height="38" rx="6" fill="#ede9fe" stroke="#8b5cf6"></rect>
+        <text x="747" y="244" text-anchor="middle" font-size="13" font-weight="700" fill="#4c1d95">max(global, boundary)</text>
+      </g>
+
+      <line x1="747" y1="278" x2="747" y2="334" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <g filter="url(#shadow)">
+        <rect x="584" y="340" width="326" height="96" rx="8" fill="#ffffff" stroke="#b45309" stroke-width="2"></rect>
+        <text x="747" y="368" text-anchor="middle" font-size="16" font-weight="700" fill="#b45309">Frame-level decision</text>
+        <text x="747" y="394" text-anchor="middle" font-size="13" fill="#334155">Reject only this (frame_idx, segment_id)</text>
+        <text x="747" y="414" text-anchor="middle" font-size="13" fill="#334155">when score &lt; depth_diff_thresh</text>
+      </g>
+
+      <line x1="584" y1="388" x2="502" y2="388" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <g filter="url(#shadow)">
+        <rect x="312" y="334" width="190" height="102" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="2"></rect>
+        <text x="407" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">Write outputs</text>
+        <text x="407" y="386" text-anchor="middle" font-size="13" fill="#334155">refined mask.pt</text>
+        <text x="407" y="405" text-anchor="middle" font-size="13" fill="#334155">summary.json counts</text>
+        <text x="407" y="424" text-anchor="middle" font-size="13" fill="#334155">all rejected visualizations</text>
+      </g>
+
+      <line x1="312" y1="385" x2="233" y2="385" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"></line>
+
+      <g filter="url(#shadow)">
+        <rect x="52" y="334" width="180" height="102" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="2"></rect>
+        <text x="142" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#0f766e">Refined folder</text>
+        <text x="142" y="386" text-anchor="middle" font-size="13" fill="#334155">mask.pt</text>
+        <text x="142" y="405" text-anchor="middle" font-size="13" fill="#334155">summary.json</text>
+        <text x="142" y="424" text-anchor="middle" font-size="13" fill="#334155">vis/*.jpg</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="note">
+    The decision box is intentionally frame-level. The same segment id can be kept in one frame and
+    rejected in another. A whole id disappears only when every frame instance for that id is rejected.
+  </div>
+
+  <h2>Frame-Level Rejection</h2>
+  <p>
+    The script does not remove a whole segment id track just because that id has weak depth
+    continuity in some frames. It removes only the exact pair:
+  </p>
+  <pre><code>(frame_idx, segment_id)</code></pre>
+  <p>
+    Example: if id <code>0</code> fails in frame <code>64</code> but passes in frame
+    <code>65</code>, frame 64 loses id <code>0</code>, and frame 65 keeps id <code>0</code>.
+  </p>
+  <div class="note">
+    If an id disappears completely in the refined mask, that means every frame instance for that
+    id was rejected. It is a result of frame-level filtering, not a global id deletion rule.
+  </div>
+
+  <h2>How The Depth Test Works</h2>
+  <p>
+    The first version used only one simple value: the median depth inside the mask versus the
+    median depth in a dilated outer ring. That can be too fragile. For example, a seated person
+    and a couch can have similar depth at the contact area, even though the person still has real
+    depth edges around the head, shoulders, or side boundary.
+  </p>
+  <p>
+    The current version uses a more robust score with two sources of evidence.
+  </p>
+
+  <h3>1. Median mask-to-ring contrast</h3>
+  <p>
+    The script still computes the basic median contrast:
+  </p>
+  <pre><code>abs(median(mask_depth) - median(outer_ring_depth)) / median(outer_ring_depth)</code></pre>
+  <p>
+    This is useful when the whole segment is clearly in front of or behind the surrounding area.
+  </p>
+
+  <h3>2. Robust outer-boundary contrast</h3>
+  <p>
+    The script also checks whether enough pixels in the outer ring are different from the mask
+    interior. This helps when only part of the boundary has a depth edge.
+  </p>
+  <ol>
+    <li>Compute the median depth inside the mask.</li>
+    <li>For each valid outer-ring pixel, compute its relative difference from the inside median.</li>
+    <li>Count what fraction of outer-ring pixels pass <code>--local_edge_thresh</code>.</li>
+    <li>If that fraction is at least <code>--min_edge_fraction</code>, use a high percentile of those differences as boundary evidence.</li>
+  </ol>
+  <p>
+    The final score is:
+  </p>
+  <pre><code>max(median_mask_to_ring_contrast, robust_outer_boundary_contrast)</code></pre>
+  <p>
+    A frame-level segment is rejected only when this final score is below
+    <code>--depth_diff_thresh</code>.
+  </p>
+
+  <h2>Exact Filtering Algorithm</h2>
+  <div class="panel">
+    <ol>
+      <li>
+        Collect every video that has both
+        <code>{split}/person_mask/{video}/masks.pt</code> and
+        <code>{split}/da3/monocular/{video}/depth/</code>.
+      </li>
+      <li>
+        For each frame, load the RGB frame path, the saved SAM masks for that frame, and the
+        matching DA3 depth map named with the same frame stem.
+      </li>
+      <li>
+        For each segment id in that frame, resize the boolean mask to the depth-map resolution
+        with nearest-neighbor interpolation. This keeps mask labels crisp.
+      </li>
+      <li>
+        Dilate the resized mask by <code>--dilate_radius</code>. The outer comparison region is
+        <code>dilated_mask AND NOT original_mask</code>.
+      </li>
+      <li>
+        Skip scoring when either the inside mask or outer ring has fewer than
+        <code>--min_mask_pixels</code> or <code>--min_ring_pixels</code> valid depth pixels.
+        Skipped cases are not rejected because there is not enough evidence.
+      </li>
+      <li>
+        Compute two discontinuity signals:
+        <code>median_relative_depth_diff</code> and
+        <code>outer_tail_relative_depth_diff</code>. The second signal is trusted only if at least
+        <code>--min_edge_fraction</code> of the outer-ring pixels exceed
+        <code>--local_edge_thresh</code>.
+      </li>
+      <li>
+        Use <code>depth_discontinuity_score = max(median_relative_depth_diff, robust_boundary_score)</code>.
+        This keeps masks when any meaningful part of the boundary has a depth edge.
+      </li>
+      <li>
+        Reject only the current <code>(frame_idx, segment_id)</code> when
+        <code>depth_discontinuity_score &lt; --depth_diff_thresh</code>.
+      </li>
+      <li>
+        Save a copied refined mask dictionary without rejected frame instances. The original
+        <code>person_mask</code> file is never modified.
+      </li>
+      <li>
+        Save every rejected frame-instance visualization by default. Each rejected mask gets its
+        own image in <code>vis/</code>.
+      </li>
+    </ol>
+  </div>
+
+  <h3>Decision Pseudocode</h3>
+  <pre><code>for frame_idx, frame in video:
+    depth = load_depth(frame)
+    for segment_id, mask in masks[frame_idx]:
+        inside = resize(mask, depth.shape)
+        outer = dilate(inside) - inside
+
+        if not enough_valid_pixels(inside, outer):
+            keep(frame_idx, segment_id)
+            continue
+
+        global_score = median_depth_difference(inside, outer)
+        boundary_score = high_quantile_outer_boundary_difference(inside, outer)
+        score = max(global_score, boundary_score)
+
+        if score &lt; depth_diff_thresh:
+            reject_only_this_frame_instance(frame_idx, segment_id)
+        else:
+            keep(frame_idx, segment_id)</code></pre>
+
+  <h2>Default Parameters</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Default</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>--depth_diff_thresh</code></td>
+        <td><code>0.06</code></td>
+        <td>Reject if the final depth-discontinuity score is below 6%.</td>
+      </tr>
+      <tr>
+        <td><code>--dilate_radius</code></td>
+        <td><code>5</code></td>
+        <td>How far to expand the mask to create the outer ring.</td>
+      </tr>
+      <tr>
+        <td><code>--local_edge_thresh</code></td>
+        <td><code>0.08</code></td>
+        <td>Outer-ring pixels must differ by at least 8% to count as local edge evidence.</td>
+      </tr>
+      <tr>
+        <td><code>--min_edge_fraction</code></td>
+        <td><code>0.08</code></td>
+        <td>At least 8% of outer-ring pixels must show edge evidence before the boundary tail is trusted.</td>
+      </tr>
+      <tr>
+        <td><code>--boundary_quantile</code></td>
+        <td><code>90</code></td>
+        <td>Uses the 90th percentile of outer-ring contrast, so one small noisy pixel does not dominate.</td>
+      </tr>
+      <tr>
+        <td><code>--min_mask_pixels</code>, <code>--min_ring_pixels</code></td>
+        <td><code>25</code>, <code>25</code></td>
+        <td>Skip scoring when the mask or ring is too small to be reliable.</td>
+      </tr>
+      <tr>
+        <td><code>--vis_sample_every</code></td>
+        <td><code>1</code></td>
+        <td>Saves every rejected frame-instance visualization by default.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Summary File</h2>
+  <p>
+    Each video gets a <code>summary.json</code>. The most important fields are:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>original_segments</code></td>
+        <td>All ids found in the original mask file.</td>
+      </tr>
+      <tr>
+        <td><code>person_frequency</code></td>
+        <td>Original id-to-frame-count map, matching the existing mask metadata style.</td>
+      </tr>
+      <tr>
+        <td><code>remaining_person_frequency</code>, <code>rejected_person_frequency</code></td>
+        <td>Simple id-to-count maps for masks kept after refinement and masks removed by refinement.</td>
+      </tr>
+      <tr>
+        <td><code>remaining_segments</code></td>
+        <td>Ids still present anywhere in the refined mask. This can be an empty list.</td>
+      </tr>
+      <tr>
+        <td><code>fully_removed_segments</code></td>
+        <td>Ids with zero remaining frame instances after refinement.</td>
+      </tr>
+      <tr>
+        <td><code>segments_with_rejections</code></td>
+        <td>Ids that had at least one rejected frame instance.</td>
+      </tr>
+      <tr>
+        <td><code>num_rejected_instances</code></td>
+        <td>Total number of rejected <code>(frame_idx, segment_id)</code> pairs.</td>
+      </tr>
+      <tr>
+        <td><code>per_segment_counts</code></td>
+        <td>For each id: original frame count, rejected frame count, and remaining frame count.</td>
+      </tr>
+      <tr>
+        <td><code>original_segment_counts</code>, <code>rejected_segment_counts</code>, <code>remaining_segment_counts</code></td>
+        <td>Direct id-to-count maps, so each segment id's original, removed, and remaining mask-instance counts are easy to read.</td>
+      </tr>
+      <tr>
+        <td><code>rejected_segments</code></td>
+        <td>Detailed frame-level records with frame index, segment id, score, and component metrics.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warning">
+    <strong>Important:</strong> <code>rejected_segments</code> is a list of rejected frame instances.
+    It is not a list of globally deleted ids.
+  </div>
+
+  <h2>Commands</h2>
+  <p>Run one clip:</p>
+  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py \
+  --video vid_001__day_1__con_1__person_1_part1_chunk_0003 \
+  --overwrite</code></pre>
+
+  <p>Run every split that currently has both masks and depth:</p>
+  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py --overwrite</code></pre>
+
+  <p>Check without writing output:</p>
+  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py --dry_run</code></pre>
+</main>
+</body>
+</html>

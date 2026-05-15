@@ -1,0 +1,82 @@
+# Python caches and local build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Credentials, tokens, and private config
+*credential*
+*credentials*
+*secret*
+*secrets*
+*token*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+auth.json
+service_account*.json
+
+# Model weights, checkpoints, and generated tensor/data artifacts
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+*.onnx
+*.bin
+*.npz
+*.npy
+*.pkl
+*.pickle
+checkpoints/
+weights/
+models/
+
+# Hugging Face / model caches
+.cache/
+cache/
+hf_cache/
+huggingface/
+.huggingface/
+wandb/
+runs/
+lightning_logs/
+
+# EgoCom datasets and generated preprocessing outputs
+data/
+extract_output/
+output/
+outputs/
+results/
+tmp/
+temp/
+logs/
+*.log
+
+# Vendored external repositories are large and may contain checkpoints/caches.
+_external/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

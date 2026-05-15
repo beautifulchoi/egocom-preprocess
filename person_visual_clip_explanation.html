@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Masked Person CLIP Features</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6872;
+      --line: #cfd8dc;
+      --blue: #2563eb;
+      --green: #17803d;
+      --red: #c2410c;
+      --gold: #9a6700;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #10212b;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .small { font-size: 13px; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Masked Person CLIP Features</h1>
+  <p>
+    This preprocessing step extracts visual CLIP features for each mapped
+    person track. It uses the final person mapping to union one or more
+    refined-mask segment ids, blacks out the rest of the full frame, and feeds
+    the masked image to CLIP ViT-L/14. If a frame has no mapped segment for
+    that person, the extractor feeds a full black image so the feature sequence
+    remains aligned to every frame in the chunk.
+  </p>
+
+  <h2>Inputs And Outputs</h2>
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Path</th><th>Use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Person mapping</td>
+        <td><code>val/person_face_mapping/*/remap_all_chunks.json</code></td>
+        <td>Maps final person ids to refined-mask segment ids for each clip.</td>
+      </tr>
+      <tr>
+        <td>Refined masks</td>
+        <td><code>val/refined_mask/&lt;video&gt;/mask.pt</code></td>
+        <td>Stores frame-indexed masks keyed by local segment id.</td>
+      </tr>
+      <tr>
+        <td>Frames</td>
+        <td><code>val/frame/&lt;video&gt;/frame_XXXXXX.jpg</code></td>
+        <td>Provides original RGB pixels. Mask index 0 aligns to <code>frame_000001.jpg</code>.</td>
+      </tr>
+      <tr>
+        <td>Feature output</td>
+        <td><code>val/person_visual_clip_features/&lt;scene&gt;/person_&lt;id&gt;/&lt;video&gt;.pt</code></td>
+        <td>Stores normalized CLIP features and per-frame metadata.</td>
+      </tr>
+      <tr>
+        <td>Visualization output</td>
+        <td><code>val/person_visual_clip_features/&lt;scene&gt;/person_&lt;id&gt;/visualizations/*.jpg</code></td>
+        <td>Stores sampled full-frame masked images inside each person's folder.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pipeline</h2>
+  <svg viewBox="0 0 1080 330" role="img" aria-label="Masked person CLIP feature pipeline">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#52606b"></path>
+      </marker>
+    </defs>
+    <rect x="30" y="42" width="190" height="78" rx="8" fill="#eef6ff" stroke="#8bb8f7"></rect>
+    <text x="125" y="74" text-anchor="middle" font-size="15" font-weight="700">Person Mapping</text>
+    <text x="125" y="98" text-anchor="middle" font-size="12">person id -> segment ids</text>
+
+    <rect x="30" y="204" width="190" height="78" rx="8" fill="#effaf1" stroke="#8fd19e"></rect>
+    <text x="125" y="236" text-anchor="middle" font-size="15" font-weight="700">Refined Mask</text>
+    <text x="125" y="260" text-anchor="middle" font-size="12">frame x segment masks</text>
+
+    <rect x="285" y="123" width="190" height="78" rx="8" fill="#fff7e6" stroke="#e2b85c"></rect>
+    <text x="380" y="155" text-anchor="middle" font-size="15" font-weight="700">Union Segments</text>
+    <text x="380" y="179" text-anchor="middle" font-size="12">one person mask per frame</text>
+
+    <rect x="540" y="42" width="190" height="78" rx="8" fill="#f8fafc" stroke="#9aa6b2"></rect>
+    <text x="635" y="74" text-anchor="middle" font-size="15" font-weight="700">RGB Frame</text>
+    <text x="635" y="98" text-anchor="middle" font-size="12">full 480 x 640 image</text>
+
+    <rect x="540" y="204" width="190" height="78" rx="8" fill="#f7f0ff" stroke="#bd9beb"></rect>
+    <text x="635" y="236" text-anchor="middle" font-size="15" font-weight="700">Masked Image</text>
+    <text x="635" y="260" text-anchor="middle" font-size="12">black background</text>
+
+    <rect x="795" y="42" width="220" height="78" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="905" y="74" text-anchor="middle" font-size="15" font-weight="700">CLIP ViT-L/14</text>
+    <text x="905" y="98" text-anchor="middle" font-size="12">normalized 768-d feature</text>
+
+    <rect x="795" y="204" width="220" height="78" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="905" y="236" text-anchor="middle" font-size="15" font-weight="700">Track Feature File</text>
+    <text x="905" y="260" text-anchor="middle" font-size="12">features + frame metadata</text>
+
+    <line x1="220" y1="81" x2="285" y2="145" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="220" y1="243" x2="285" y2="178" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="475" y1="162" x2="540" y2="243" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="635" y1="120" x2="635" y2="204" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="730" y1="243" x2="795" y2="97" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="905" y1="120" x2="905" y2="204" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+
+  <h2>Masked Image</h2>
+  <div class="grid">
+    <div class="panel">
+      <h3>Full Frame Input</h3>
+      <svg viewBox="0 0 360 250" role="img" aria-label="Full frame mask operation">
+        <rect x="20" y="20" width="320" height="210" fill="#e8eef2" stroke="#cbd5e1"></rect>
+        <path d="M119 58 C73 80 67 172 132 197 C189 219 257 183 250 121 C242 70 176 42 119 58 Z" fill="#6ee7a8" fill-opacity="0.45" stroke="#17803d" stroke-width="3"></path>
+        <path d="M132 74 C108 91 110 140 148 153 C187 166 221 136 214 96 C210 72 164 61 132 74 Z" fill="#2563eb" fill-opacity="0.35" stroke="#2563eb" stroke-width="2"></path>
+        <text x="180" y="238" text-anchor="middle" font-size="12">Union mask covers the visible mapped person</text>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#6ee7a8"></span>person mask</span>
+        <span><span class="swatch" style="background:#2563eb"></span>kept RGB pixels</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>CLIP Payload</h3>
+      <p class="small">
+        Each output <code>.pt</code> file stores <code>features</code>,
+        zero-based <code>frame_indices</code>, <code>frame_stems</code>,
+        <code>segment_ids</code>, per-frame <code>mask_bboxes</code>,
+        <code>mask_pixel_counts</code>, and source paths. Features are L2
+        normalized and saved as <code>float32</code>.
+      </p>
+      <p><code>features.shape == (num_source_frames, 768)</code></p>
+      <p><code>image_mode == "full_frame_masked_black_background_else_black_frame"</code></p>
+      <p><code>has_masks</code> and <code>frame_statuses</code> identify black fallback rows.</p>
+    </div>
+  </div>
+
+  <h2>Command</h2>
+  <div class="panel">
+    <p><code>python /home/prj/egocom_preprocess/extract_person_visual_clip.py --split val</code></p>
+    <p class="small">
+      Use <code>--scene_key</code>, <code>--video</code>, or <code>--limit</code>
+      for a smaller run. Use <code>--overwrite</code> to regenerate existing
+      feature files.
+    </p>
+  </div>
+</main>
+</body>
+</html>

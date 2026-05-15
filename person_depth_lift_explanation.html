@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Person Depth Lift</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6872;
+      --line: #cfd8dc;
+      --blue: #2563eb;
+      --green: #17803d;
+      --red: #c2410c;
+      --gold: #9a6700;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #10212b;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .small { font-size: 13px; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Person Depth Lift</h1>
+  <p>
+    This preprocessing step converts each mapped person mask into a compact
+    per-frame camera-space depth summary. It combines identity mapping,
+    refined segmentation, saved face detections, DA3 metric depth, and DA3
+    intrinsics that were estimated on the resized DA3 depth grid.
+  </p>
+
+  <h2>Inputs And Outputs</h2>
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Path</th><th>Use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Person mapping</td>
+        <td><code>train/person_face_mapping/*/remap_all_chunks.json</code></td>
+        <td>Maps segment ids in each clip to actual person ids.</td>
+      </tr>
+      <tr>
+        <td>Refined masks</td>
+        <td><code>train/refined_mask/&lt;video&gt;/mask.pt</code></td>
+        <td>Provides frame-indexed segment masks at frame resolution.</td>
+      </tr>
+      <tr>
+        <td>Face bboxes</td>
+        <td><code>train/person_face_emb/&lt;video&gt;/embeding.pt</code></td>
+        <td>Stores per-segment valid frame indices and face bbox coordinates.</td>
+      </tr>
+      <tr>
+        <td>Depth</td>
+        <td><code>train/da3/monocular/&lt;video&gt;/depth/frame_XXXXXX.npy</code></td>
+        <td>Metric monocular depth on the DA3 resized grid.</td>
+      </tr>
+      <tr>
+        <td>Intrinsics</td>
+        <td><code>train/da3/nested/&lt;video&gt;/camera_params/intrinsics.npy</code></td>
+        <td>Camera intrinsics aligned to the DA3 depth grid.</td>
+      </tr>
+      <tr>
+        <td>Output</td>
+        <td><code>train/person_depth_lift/&lt;scene&gt;/person_&lt;id&gt;/&lt;video&gt;.npz</code></td>
+        <td>Per-frame lifted coordinates, bboxes, status labels, and diagnostics.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pipeline</h2>
+  <svg viewBox="0 0 1080 330" role="img" aria-label="Depth lift pipeline diagram">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#52606b"></path>
+      </marker>
+    </defs>
+    <rect x="30" y="40" width="170" height="72" rx="8" fill="#eef6ff" stroke="#8bb8f7"></rect>
+    <text x="115" y="71" text-anchor="middle" font-size="15" font-weight="700">Mapping</text>
+    <text x="115" y="94" text-anchor="middle" font-size="12">person id + segment id</text>
+
+    <rect x="30" y="198" width="170" height="72" rx="8" fill="#effaf1" stroke="#8fd19e"></rect>
+    <text x="115" y="229" text-anchor="middle" font-size="15" font-weight="700">Refined Mask</text>
+    <text x="115" y="252" text-anchor="middle" font-size="12">frame x segment</text>
+
+    <rect x="265" y="40" width="180" height="72" rx="8" fill="#fff7e6" stroke="#e2b85c"></rect>
+    <text x="355" y="71" text-anchor="middle" font-size="15" font-weight="700">Face Embedding</text>
+    <text x="355" y="94" text-anchor="middle" font-size="12">saved face bboxes</text>
+
+    <rect x="265" y="198" width="180" height="72" rx="8" fill="#f7f0ff" stroke="#bd9beb"></rect>
+    <text x="355" y="229" text-anchor="middle" font-size="15" font-weight="700">DA3 Depth</text>
+    <text x="355" y="252" text-anchor="middle" font-size="12">378 x 504 sample grid</text>
+
+    <rect x="515" y="108" width="190" height="96" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="610" y="140" text-anchor="middle" font-size="15" font-weight="700">Align To Depth</text>
+    <text x="610" y="164" text-anchor="middle" font-size="12">nearest mask resize</text>
+    <text x="610" y="184" text-anchor="middle" font-size="12">scale face bbox</text>
+
+    <rect x="775" y="62" width="230" height="80" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="890" y="93" text-anchor="middle" font-size="15" font-weight="700">Select Lift Region</text>
+    <text x="890" y="116" text-anchor="middle" font-size="12">mask AND face bbox, else mask</text>
+
+    <rect x="775" y="190" width="230" height="80" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="890" y="221" text-anchor="middle" font-size="15" font-weight="700">Lift And Save</text>
+    <text x="890" y="244" text-anchor="middle" font-size="12">camera-space mean x,y,z,d</text>
+
+    <line x1="200" y1="76" x2="265" y2="76" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="200" y1="234" x2="265" y2="234" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="445" y1="76" x2="515" y2="135" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="445" y1="234" x2="515" y2="178" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="705" y1="155" x2="775" y2="102" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="890" y1="142" x2="890" y2="190" stroke="#52606b" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+
+  <h2>Lift Region</h2>
+  <div class="grid">
+    <div class="panel">
+      <h3>Frame Space</h3>
+      <svg viewBox="0 0 360 250" role="img" aria-label="Mask and face bbox intersection">
+        <rect x="20" y="20" width="320" height="210" fill="#f8fafc" stroke="#cbd5e1"></rect>
+        <path d="M120 60 C70 75 65 170 130 195 C190 220 260 185 250 120 C243 70 178 45 120 60 Z" fill="#6ee7a8" fill-opacity="0.45" stroke="#17803d" stroke-width="3"></path>
+        <rect x="118" y="64" width="98" height="80" fill="#f97316" fill-opacity="0.18" stroke="#c2410c" stroke-width="3"></rect>
+        <path d="M132 73 C111 83 112 128 145 139 C184 150 216 129 211 95 C207 71 164 61 132 73 Z" fill="#2563eb" fill-opacity="0.35" stroke="#2563eb" stroke-width="2"></path>
+        <text x="180" y="238" text-anchor="middle" font-size="12">Intersection is lifted first</text>
+      </svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:#6ee7a8"></span>person mask</span>
+        <span><span class="swatch" style="background:#f97316"></span>face bbox</span>
+        <span><span class="swatch" style="background:#2563eb"></span>lift pixels</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Depth Space</h3>
+      <p class="small">
+        The mask is resized with nearest-neighbor interpolation to preserve
+        labels. Bbox coordinates are scaled by width and height ratios from
+        frame space to depth space. The depth pixels selected by the region are
+        back-projected using DA3 intrinsics from the same resized grid.
+      </p>
+      <p><code>x = ((u - cx) / fx) * z</code></p>
+      <p><code>y = ((v - cy) / fy) * z</code></p>
+      <p><code>d = sqrt(x^2 + y^2 + z^2)</code></p>
+    </div>
+  </div>
+
+  <h2>Rejection And Fallback</h2>
+  <table>
+    <thead>
+      <tr><th>Status</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>face_intersection</code></td><td>Face bbox and mapped mask overlap had enough valid depth pixels.</td></tr>
+      <tr><td><code>mask_fallback</code></td><td>Face bbox was missing or too small, so the full mapped mask was lifted.</td></tr>
+      <tr><td><code>discontinuity_rejected</code></td><td>Mask boundary had too little depth gap and too little normalized gradient.</td></tr>
+      <tr><td><code>insufficient_depth</code></td><td>The selected region had too few finite positive depth pixels.</td></tr>
+      <tr><td><code>absent_seg</code></td><td>No mapped segment mask exists for that frame.</td></tr>
+      <tr><td><code>missing_depth</code></td><td>The DA3 depth file was missing or invalid.</td></tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>
