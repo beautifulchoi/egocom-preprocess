@@ -39,18 +39,9 @@ flowchart TD
     lift --> manifest
     clip --> manifest
     raw --> manifest
-
-    click refine "filter_mask_explanation.html" "Depth-Based Mask Refinement"
-    click face "extract_person_embeding_explanation.html" "Person Face Embedding Extraction"
-    click map "map_person_face_embedding_explanation.html" "Face-Embedding Person Mapping"
-    click report "person_face_report_outputs_guide.html" "Person Mapping Outputs Guide"
-    click remap "remap_person_face_all_chunks_explanation.html" "All-Chunk Person Remapping"
-    click merged_report "person_face_report_outputs_guide.html" "Person Mapping Outputs Guide"
-    click lift "person_depth_lift_explanation.html" "Person Depth Lift"
-    click clip "person_visual_clip_explanation.html" "Masked Person CLIP Features"
-    click text "person_spatial_text_features_explanation.html" "Person Spatial Text Features"
-    click t5 "person_spatial_text_features_explanation.html" "Person Spatial Text Features"
 ```
+
+Use the table below to open each detailed HTML reference.
 
 ## Stage Links
 
