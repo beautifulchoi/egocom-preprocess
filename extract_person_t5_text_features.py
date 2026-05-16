@@ -143,6 +143,10 @@ def read_text_lines(path: Path) -> list[str]:
     return [line if line else "null" for line in lines]
 
 
+def lines_for_t5_encoding(lines: list[str]) -> list[str]:
+    return ["" if line.strip().lower() == "null" else line for line in lines]
+
+
 def pick_dtype(device: str | None) -> torch.dtype:
     if device == "cpu":
         return torch.float32
@@ -176,7 +180,13 @@ def load_t5_encoder(
     if device is None and torch.cuda.is_available():
         model_kwargs["device_map"] = "auto"
 
-    model = T5EncoderModel.from_pretrained(model_id, **model_kwargs).eval()
+    try:
+        model = T5EncoderModel.from_pretrained(model_id, **model_kwargs).eval()
+    except OSError as exc:
+        if "TensorFlow weights" not in str(exc):
+            raise
+        model_kwargs["from_tf"] = True
+        model = T5EncoderModel.from_pretrained(model_id, **model_kwargs).eval()
     if device is not None:
         model = model.to(device)
     return tokenizer, model
@@ -230,6 +240,7 @@ def load_text_metadata(txt_path: Path) -> dict[str, Any]:
 def build_payload(
     features: torch.Tensor,
     texts: list[str],
+    encoded_texts: list[str],
     txt_path: Path,
     input_root: Path,
     output_path: Path,
@@ -240,6 +251,7 @@ def build_payload(
     return {
         "features": features,
         "texts": texts,
+        "encoded_texts": encoded_texts,
         "source_text_path": str(txt_path),
         "source_metadata_path": str(txt_path.with_suffix(".json")) if txt_path.with_suffix(".json").exists() else None,
         "output_path": str(output_path),
@@ -289,8 +301,9 @@ def process_text_file(
     if not texts:
         raise ValueError(f"No text lines found in {txt_path}")
 
+    encoded_texts = lines_for_t5_encoding(texts)
     features = encode_lines(
-        lines=texts,
+        lines=encoded_texts,
         tokenizer=tokenizer,
         model=model,
         max_length=args.max_length,
@@ -308,6 +321,7 @@ def process_text_file(
     payload = build_payload(
         features=features,
         texts=texts,
+        encoded_texts=encoded_texts,
         txt_path=txt_path,
         input_root=input_root,
         output_path=out_path,

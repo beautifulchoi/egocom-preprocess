@@ -38,10 +38,12 @@ from tqdm import tqdm
 
 from extract_person_visual_clip import (
     Assignment,
+    CLIP_RE,
     black_image,
     collect_assignments_for_split,
     default_mapping_root,
     list_frame_files,
+    load_json,
     load_mask_dict,
     mask_bbox,
     nonnegative_int,
@@ -58,10 +60,31 @@ DEFAULT_MODEL_ID = "OpenGVLab/InternVL2-8B"
 DEFAULT_PROMPT = (
     "Image-1: <image>\n"
     "Image-2: <image>\n"
-    "Image-1 is the masked frame. Image-2 shows original frame\n"
-    "find the person of Image-1, on Image-2\n"
-    "describe person's spatial location, including relative x and y direction, "
-    "how far the one is facing direction, occlusion. "
+    "Image-1 shows only the target person. Image-2 is the original frame. "
+    "Locate the same target person in Image-2.\n"
+    "Write one concise natural sentence describing the target person's spatial "
+    "location in Image-2, including left/right and top/bottom position, "
+    "approximate distance or size, facing direction, and occlusion if visible.\n"
+    "Start directly with 'The target person'. "
+    "Do not explain your reasoning. Do not use markdown, bullet lists, labels, "
+    "or key-value formatting. Do not start with phrases like 'In Image-2', "
+    "'To find', or 'The person in Image-1'."
+)
+DEFAULT_COMBINED_PROMPT = (
+    "<image>\n"
+    "The left half is Image-1, a masked reference frame showing only the target "
+    "person. The right half is Image-2, the original full frame. Locate the "
+    "same target person in the right half.\n"
+    "Write one concise natural sentence describing the target person's spatial "
+    "location within the original frame, including left/right and top/bottom "
+    "position, approximate distance or size, facing direction, and occlusion if "
+    "visible.\n"
+    "Start directly with 'The target person'. "
+    "Do not explain your reasoning. Do not use markdown, bullet lists, labels, "
+    "or key-value formatting. Do not mention image halves, right half, left half, "
+    "Image-1, or Image-2. "
+    "Do not start with phrases like 'In Image-2', 'To find', or "
+    "'The person in Image-1'."
 )
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -81,7 +104,21 @@ class TextFrame:
 
 
 def clean_line(text: str) -> str:
-    return " ".join(str(text).strip().split()) or "null"
+    line = " ".join(str(text).strip().split())
+    replacements = {
+        "located in the right half of the original frame, ": "located ",
+        "located in the right half of the frame, ": "located ",
+        "located in the right half, ": "located ",
+        "positioned in the right half of the original frame, ": "positioned ",
+        "positioned in the right half of the frame, ": "positioned ",
+        "positioned in the right half, ": "positioned ",
+        "in the right half of the original frame, ": "",
+        "in the right half of the frame, ": "",
+        "in the right half, ": "",
+    }
+    for old, new in replacements.items():
+        line = line.replace(old, new)
+    return line or "null"
 
 
 def resolve_device(device_arg: str) -> str:
@@ -191,6 +228,37 @@ def image_pair_to_pixel_values(
     return torch.cat(pixel_values_list), num_patches_list
 
 
+def image_to_pixel_values(
+    image: Image.Image,
+    input_size: int,
+    max_tiles: int,
+) -> tuple[torch.Tensor, int]:
+    transform = build_transform(input_size=input_size)
+    tiles = dynamic_preprocess(
+        image,
+        image_size=input_size,
+        use_thumbnail=True,
+        max_num=max_tiles,
+    )
+    pixel_values = torch.stack([transform(tile) for tile in tiles])
+    return pixel_values, int(pixel_values.shape[0])
+
+
+def combine_reference_query(
+    masked_image: Image.Image,
+    original_image: Image.Image,
+) -> Image.Image:
+    masked = masked_image.convert("RGB")
+    original = original_image.convert("RGB")
+    if original.size != masked.size:
+        original = original.resize(masked.size, Image.BICUBIC)
+    width, height = masked.size
+    combined = Image.new("RGB", (width * 2, height))
+    combined.paste(masked, (0, 0))
+    combined.paste(original, (width, 0))
+    return combined
+
+
 def load_model(model_id: str, device: str, local_files_only: bool):
     try:
         from transformers import AutoModel, AutoTokenizer
@@ -243,6 +311,7 @@ def collect_text_frames(
     assignment: Assignment,
     split_root: Path,
     min_mask_pixels: int,
+    max_frames: int | None,
 ) -> tuple[list[TextFrame], dict[str, Any]]:
     frame_dir = split_root / "frame" / assignment.video_name
     mask_path = split_root / "refined_mask" / assignment.video_name / "mask.pt"
@@ -256,6 +325,9 @@ def collect_text_frames(
     image_shape = infer_image_shape(frame_paths, mask_dict)
     rows = []
     status_counts: Counter[str] = Counter()
+
+    if max_frames is not None:
+        frame_paths = frame_paths[:max_frames]
 
     for frame_idx, frame_path in enumerate(frame_paths):
         original_image, frame_rgb, original_status = read_original_image(frame_path, image_shape)
@@ -409,8 +481,125 @@ def describe_pair(
     return clean_line(response)
 
 
+@torch.inference_mode()
+def describe_combined_batch(
+    model,
+    tokenizer,
+    rows: list[TextFrame],
+    prompt: str,
+    input_size: int,
+    max_tiles: int,
+    max_new_tokens: int,
+    device: str,
+    dtype: torch.dtype,
+    batch_size: int,
+) -> list[str]:
+    texts = ["null"] * len(rows)
+    valid_indices = [
+        idx
+        for idx, row in enumerate(rows)
+        if row.has_mask and row.masked_image is not None and row.original_image is not None
+    ]
+    generation_config = {
+        "max_new_tokens": int(max_new_tokens),
+        "do_sample": False,
+    }
+
+    for start in range(0, len(valid_indices), batch_size):
+        batch_indices = valid_indices[start : start + batch_size]
+        pixel_values_list = []
+        num_patches_list = []
+        for row_index in batch_indices:
+            row = rows[row_index]
+            combined = combine_reference_query(row.masked_image, row.original_image)
+            pixel_values, patch_count = image_to_pixel_values(
+                combined,
+                input_size=input_size,
+                max_tiles=max_tiles,
+            )
+            pixel_values_list.append(pixel_values)
+            num_patches_list.append(patch_count)
+
+        pixel_values = torch.cat(pixel_values_list).to(dtype=dtype, device=device)
+        responses = model.batch_chat(
+            tokenizer,
+            pixel_values,
+            questions=[prompt] * len(batch_indices),
+            generation_config=dict(generation_config),
+            num_patches_list=num_patches_list,
+        )
+        for row_index, response in zip(batch_indices, responses):
+            texts[row_index] = clean_line(response)
+    return texts
+
+
 def text_output_path(output_root: Path, assignment: Assignment) -> Path:
     return output_root / assignment.scene_key / f"person_{assignment.person_id}" / f"{assignment.video_name}.txt"
+
+
+def chunk_number_from_video(video_name: str) -> int | None:
+    match = CLIP_RE.match(video_name)
+    if match is None:
+        return None
+    return int(match.group("chunk"))
+
+
+def conflicted_scene_chunks(mapping_root: Path) -> dict[str, set[int]]:
+    if not mapping_root.is_dir():
+        return {}
+    out: dict[str, set[int]] = {}
+    for summary_path in sorted(mapping_root.glob("*/summary.json")):
+        try:
+            data = load_json(summary_path)
+        except Exception:
+            continue
+        scene_key = summary_path.parent.name
+        chunks: set[int] = set()
+        for attempt in data.get("chunk_attempts", []):
+            if int(attempt.get("conflict_segments", 0)) > 0:
+                chunk = attempt.get("chunk")
+                if chunk is not None:
+                    chunks.add(int(chunk))
+        if int(data.get("conflict_segments", 0)) > 0:
+            chunk = data.get("selected_chunk", data.get("chunk"))
+            if chunk is not None:
+                chunks.add(int(chunk))
+        if data.get("fallback_status") == "all_chunks_conflicted":
+            for attempt in data.get("chunk_attempts", []):
+                chunk = attempt.get("chunk")
+                if chunk is not None:
+                    chunks.add(int(chunk))
+        if chunks:
+            out[scene_key] = chunks
+    return out
+
+
+def filter_conflicted_assignments(
+    assignments: list[Assignment],
+    mapping_root: Path,
+) -> tuple[list[Assignment], list[dict[str, Any]]]:
+    conflicted = conflicted_scene_chunks(mapping_root)
+    if not conflicted:
+        return assignments, []
+    kept = []
+    excluded = []
+    for assignment in assignments:
+        chunk = chunk_number_from_video(assignment.video_name)
+        scene_chunks = conflicted.get(assignment.scene_key, set())
+        if chunk is not None and chunk in scene_chunks:
+            excluded.append(
+                {
+                    "split": assignment.split,
+                    "scene_key": assignment.scene_key,
+                    "video_name": assignment.video_name,
+                    "person_id": int(assignment.person_id),
+                    "chunk": int(chunk),
+                    "reason": "conflicted_mapping_chunk_attempt",
+                }
+            )
+            continue
+        kept.append(assignment)
+    return kept, excluded
 
 
 def write_lines(path: Path, lines: list[str]) -> None:
@@ -437,6 +626,8 @@ def metadata_payload(
         "segment_ids": [int(value) for value in assignment.segment_ids],
         "model_id": args.model_id,
         "prompt": args.prompt,
+        "combined_prompt": args.combined_prompt,
+        "pair_mode": args.pair_mode,
         "min_mask_pixels": int(args.min_mask_pixels),
         "num_lines": len(texts),
         "num_null_lines": int(sum(1 for text in texts if text == "null")),
@@ -486,6 +677,7 @@ def process_assignment(
         assignment=assignment,
         split_root=split_root,
         min_mask_pixels=args.min_mask_pixels,
+        max_frames=args.max_frames,
     )
     visualization_paths = save_visualizations(
         rows=rows,
@@ -494,24 +686,43 @@ def process_assignment(
         num_samples=args.num_vis_samples,
     )
 
-    texts = []
-    for row in rows:
-        if not row.has_mask or args.dry_run:
-            texts.append("null" if not row.has_mask else f"DRY_RUN {row.frame_stem}")
-            continue
-        texts.append(
-            describe_pair(
-                model=model,
-                tokenizer=tokenizer,
-                row=row,
-                prompt=args.prompt,
-                input_size=args.input_size,
-                max_tiles=args.max_tiles,
-                max_new_tokens=args.max_new_tokens,
-                device=device,
-                dtype=dtype,
-            )
+    if args.dry_run:
+        texts = [
+            "null" if not row.has_mask else f"DRY_RUN {row.frame_stem}"
+            for row in rows
+        ]
+    elif args.pair_mode == "combined":
+        texts = describe_combined_batch(
+            model=model,
+            tokenizer=tokenizer,
+            rows=rows,
+            prompt=args.combined_prompt,
+            input_size=args.input_size,
+            max_tiles=args.max_tiles,
+            max_new_tokens=args.max_new_tokens,
+            device=device,
+            dtype=dtype,
+            batch_size=args.batch_size,
         )
+    else:
+        texts = []
+        for row in rows:
+            if not row.has_mask:
+                texts.append("null")
+                continue
+            texts.append(
+                describe_pair(
+                    model=model,
+                    tokenizer=tokenizer,
+                    row=row,
+                    prompt=args.prompt,
+                    input_size=args.input_size,
+                    max_tiles=args.max_tiles,
+                    max_new_tokens=args.max_new_tokens,
+                    device=device,
+                    dtype=dtype,
+                )
+            )
 
     write_lines(out_path, texts)
     payload = metadata_payload(
@@ -553,6 +764,7 @@ def write_summaries(output_roots: dict[str, Path], results: list[dict[str, Any]]
             "split": split,
             "scene_key": scene_key,
             "model_id": args.model_id,
+            "pair_mode": args.pair_mode,
             "min_mask_pixels": int(args.min_mask_pixels),
             "status_counts": dict(sorted(status_counts.items())),
             "num_tracks": len(scene_results),
@@ -570,6 +782,8 @@ def write_summaries(output_roots: dict[str, Path], results: list[dict[str, Any]]
             "split": split,
             "model_id": args.model_id,
             "prompt": args.prompt,
+            "combined_prompt": args.combined_prompt,
+            "pair_mode": args.pair_mode,
             "min_mask_pixels": int(args.min_mask_pixels),
             "status_counts": dict(sorted(status_counts.items())),
             "num_tracks": len(split_results),
@@ -597,13 +811,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--video", type=str, default=None)
     parser.add_argument("--model_id", type=str, default=DEFAULT_MODEL_ID)
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--pair_mode", choices=("two_image", "combined"), default="two_image")
+    parser.add_argument("--batch_size", type=positive_int, default=8)
     parser.add_argument("--input_size", type=positive_int, default=448)
     parser.add_argument("--max_tiles", type=positive_int, default=1)
     parser.add_argument("--max_new_tokens", type=positive_int, default=80)
     parser.add_argument("--min_mask_pixels", type=nonnegative_int, default=100)
+    parser.add_argument("--max_frames", type=nonnegative_int, default=None)
     parser.add_argument("--num_vis_samples", type=nonnegative_int, default=8)
     parser.add_argument("--limit", type=nonnegative_int, default=None)
     parser.add_argument("--prompt", type=str, default=DEFAULT_PROMPT)
+    parser.add_argument("--combined_prompt", type=str, default=DEFAULT_COMBINED_PROMPT)
+    parser.add_argument("--exclude_conflicted_videos", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--local_files_only", action="store_true")
@@ -630,14 +849,32 @@ def main() -> int:
     for split in splits:
         mapping_root = Path(args.mapping_root) if args.mapping_root else default_mapping_root(data_root, split)
         output_roots[split] = Path(args.output_root) if args.output_root else default_output_root(data_root, split)
-        assignments.extend(
-            collect_assignments_for_split(
-                split=split,
-                mapping_root=mapping_root,
-                scene_key_filter=args.scene_key,
-                video_filter=args.video,
-            )
+        split_assignments = collect_assignments_for_split(
+            split=split,
+            mapping_root=mapping_root,
+            scene_key_filter=args.scene_key,
+            video_filter=args.video,
         )
+        if args.exclude_conflicted_videos:
+            split_assignments, excluded = filter_conflicted_assignments(
+                split_assignments,
+                mapping_root,
+            )
+            if excluded:
+                excluded_path = output_roots[split] / "excluded_conflicted_videos.json"
+                write_json(
+                    excluded_path,
+                    {
+                        "split": split,
+                        "num_excluded_tracks": len(excluded),
+                        "excluded_tracks": excluded,
+                    },
+                )
+                print(
+                    f"Excluded conflicted tracks for {split}: "
+                    f"{len(excluded)} -> {excluded_path}"
+                )
+        assignments.extend(split_assignments)
 
     if args.limit is not None:
         assignments = assignments[: args.limit]

@@ -90,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--output-tag", default=None)
     parser.add_argument("--splits", default="train,val,test")
-    parser.add_argument("--window-sec", type=float, default=5.0)
+    parser.add_argument("--window-sec", type=float, default=6.0)
     parser.add_argument("--overlap", type=float, default=0.5)
     parser.add_argument("--overlap-mode", choices=("ratio", "seconds"), default="ratio")
     parser.add_argument("--fps", type=float, default=5.0)
