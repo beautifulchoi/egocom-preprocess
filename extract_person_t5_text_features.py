@@ -144,7 +144,12 @@ def read_text_lines(path: Path) -> list[str]:
 
 
 def lines_for_t5_encoding(lines: list[str]) -> list[str]:
-    return ["" if line.strip().lower() == "null" else line for line in lines]
+    return [
+        "The target person is not visible."
+        if line.strip().lower() == "null"
+        else line
+        for line in lines
+    ]
 
 
 def pick_dtype(device: str | None) -> torch.dtype:
