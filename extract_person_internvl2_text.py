@@ -820,10 +820,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max_frames", type=nonnegative_int, default=None)
     parser.add_argument("--num_vis_samples", type=nonnegative_int, default=8)
     parser.add_argument("--limit", type=nonnegative_int, default=None)
+    parser.add_argument("--num_shards", type=positive_int, default=1)
+    parser.add_argument("--shard_index", type=nonnegative_int, default=0)
     parser.add_argument("--prompt", type=str, default=DEFAULT_PROMPT)
     parser.add_argument("--combined_prompt", type=str, default=DEFAULT_COMBINED_PROMPT)
     parser.add_argument("--exclude_conflicted_videos", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--no_summary", action="store_true")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--local_files_only", action="store_true")
     return parser
@@ -878,6 +881,20 @@ def main() -> int:
 
     if args.limit is not None:
         assignments = assignments[: args.limit]
+    if args.shard_index >= args.num_shards:
+        print("--shard_index must be smaller than --num_shards", file=sys.stderr)
+        return 2
+    if args.num_shards > 1:
+        total_assignments = len(assignments)
+        assignments = [
+            assignment
+            for index, assignment in enumerate(assignments)
+            if index % args.num_shards == args.shard_index
+        ]
+        print(
+            f"Shard {args.shard_index}/{args.num_shards}: "
+            f"{len(assignments)} of {total_assignments} mapped person tracks"
+        )
     if not assignments:
         print("No matching mapped person tracks found.")
         return 2
@@ -936,7 +953,8 @@ def main() -> int:
                 file=sys.stderr,
             )
 
-    write_summaries(output_roots, results, args)
+    if not args.no_summary:
+        write_summaries(output_roots, results, args)
     print(f"Done. processed={processed} skipped={skipped} failed={failed}")
     return 1 if failed else 0
 

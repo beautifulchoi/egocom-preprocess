@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Window Manifest Builder</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6872;
+      --line: #cfd8dc;
+      --blue: #2563eb;
+      --green: #17803d;
+      --red: #b42318;
+      --gold: #9a6700;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #10212b;
+    }
+    pre {
+      margin: 0 0 14px;
+      padding: 12px;
+      overflow-x: auto;
+      border-radius: 6px;
+      background: #eef3f6;
+      color: #10212b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .small { font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Window Manifest Builder</h1>
+  <p>
+    This step merges 1-minute EgoCom chunk outputs into shorter multimodal
+    samples and writes pairwise manifest rows. Each row contains source and
+    target audio windows, target geometry observed from the source camera,
+    target CLIP visual features, and target T5 text features aligned to the
+    same 5 FPS frame grid. When requested, it also writes source and target
+    original-video clips for the same window interval.
+  </p>
+
+  <h2>Split Policy</h2>
+  <table>
+    <thead>
+      <tr><th>Split</th><th>Default Window</th><th>Default Stride</th><th>Extra Filtering</th><th>Default Output</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>train</code>, <code>val</code></td>
+        <td>6 seconds, 30 frames</td>
+        <td>3 seconds, 15 frames</td>
+        <td>Ignored source chunks and non-empty target visual windows</td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5_v2/{split}</code></td>
+      </tr>
+      <tr>
+        <td><code>test</code></td>
+        <td>4 seconds, 20 frames</td>
+        <td>4 seconds, 20 frames</td>
+        <td>No overlap, complete 4-second windows only, no fully absent target visual windows, and target geometry valid ratio at least 0.25</td>
+        <td><code>/home/prj/data/egocom_holdout/4s_overlap0_v2/test</code></td>
+      </tr>
+      <tr>
+        <td><code>test</code> small validation</td>
+        <td>4 seconds, 20 frames</td>
+        <td>4 seconds, 20 frames</td>
+        <td>Same test filters, plus an explicit original-audio stem allowlist for the 12 <code>day_1__con_4</code> part videos</td>
+        <td><code>/home/prj/data/egocom_holdout/4s_overlap0_v2_day1_con4_parts/test</code></td>
+      </tr>
+      <tr>
+        <td><code>val</code> small validation</td>
+        <td>6 seconds, 30 frames</td>
+        <td>3 seconds, 15 frames</td>
+        <td>Same validation filters, plus an explicit original-audio stem allowlist for the 15 <code>day_1__con_2</code> part videos</td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5_v2_day1_con2_parts/val</code></td>
+      </tr>
+      <tr>
+        <td><code>train</code> 10-second</td>
+        <td>10 seconds, 50 frames</td>
+        <td>5 seconds, 25 frames</td>
+        <td>Same train filters, complete windows only</td>
+        <td><code>/home/prj/data/egocom_holdout/10s_overlap0.5_v2/train</code></td>
+      </tr>
+      <tr>
+        <td><code>val</code>, <code>test</code> 10-second</td>
+        <td>10 seconds, 50 frames</td>
+        <td>10 seconds, 50 frames</td>
+        <td>Same validation/test filters, complete windows only</td>
+        <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2/{split}</code></td>
+      </tr>
+      <tr>
+        <td><code>val</code>, <code>test</code> 10-second small validation</td>
+        <td>10 seconds, 50 frames</td>
+        <td>10 seconds, 50 frames</td>
+        <td>Same 10-second val/test filters, plus the explicit mini audio allowlists</td>
+        <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2_day1_con2_parts/val</code><br><code>/home/prj/data/egocom_holdout/10s_overlap0_v2_day1_con4_parts/test</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Flow</h2>
+  <svg viewBox="0 0 1040 360" role="img" aria-label="Manifest building flow">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M0,0 L10,4 L0,8 Z" fill="#5d6872"></path>
+      </marker>
+    </defs>
+    <rect x="30" y="40" width="230" height="72" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
+    <text x="50" y="72" font-size="17" fill="#172026">1-minute chunks</text>
+    <text x="50" y="96" font-size="13" fill="#5d6872">depth, xy-ray, CLIP, T5</text>
+
+    <rect x="330" y="40" width="230" height="72" rx="8" fill="#eef8f0" stroke="#17803d"></rect>
+    <text x="350" y="72" font-size="17" fill="#172026">Global timeline</text>
+    <text x="350" y="96" font-size="13" fill="#5d6872">actual chunk frame extents</text>
+
+    <rect x="630" y="40" width="250" height="72" rx="8" fill="#fff7e0" stroke="#9a6700"></rect>
+    <text x="650" y="72" font-size="17" fill="#172026">Window sampler</text>
+    <text x="650" y="96" font-size="13" fill="#5d6872">6s overlap or 4s test crop</text>
+
+    <rect x="150" y="190" width="230" height="86" rx="8" fill="#fff1f0" stroke="#b42318"></rect>
+    <text x="170" y="222" font-size="17" fill="#172026">Reject filters</text>
+    <text x="170" y="246" font-size="13" fill="#5d6872">ignored source chunks</text>
+    <text x="170" y="266" font-size="13" fill="#5d6872">fully absent target visual</text>
+
+    <rect x="480" y="190" width="230" height="86" rx="8" fill="#eef3f6" stroke="#5d6872"></rect>
+    <text x="500" y="222" font-size="17" fill="#172026">Window sidecars</text>
+    <text x="500" y="246" font-size="13" fill="#5d6872">audio, geometry, CLIP, T5</text>
+    <text x="500" y="266" font-size="13" fill="#5d6872">aligned frame intervals</text>
+
+    <rect x="780" y="190" width="230" height="86" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
+    <text x="800" y="222" font-size="17" fill="#172026">Manifest</text>
+    <text x="800" y="246" font-size="13" fill="#5d6872">manifest_mm.jsonl</text>
+    <text x="800" y="266" font-size="13" fill="#5d6872">build_summary_mm.json</text>
+
+    <line x1="260" y1="76" x2="330" y2="76" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="560" y1="76" x2="630" y2="76" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="755" y1="112" x2="300" y2="190" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="380" y1="233" x2="480" y2="233" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="710" y1="233" x2="780" y2="233" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+
+  <h2>Chunk Aggregation</h2>
+  <div class="panel">
+    <p>
+      The builder uses the frame folders under
+      <code>{data_root}/{chunk_root}/{split}/frame/{video}_chunk_*</code> to
+      recover the real chunk timeline. Consecutive chunks are placed
+      back-to-back using their actual frame counts, so short tail chunks remain
+      aligned with the original audio instead of being forced onto fixed
+      60-second boundaries.
+    </p>
+    <p>
+      For example, a sequence with frame counts
+      <code>300, 300, 300, 202, 202</code> at 5 FPS is aggregated as frame
+      intervals <code>[0,300)</code>, <code>[300,600)</code>,
+      <code>[600,900)</code>, <code>[900,1102)</code>, and
+      <code>[1102,1304)</code>. The fifth chunk therefore starts around
+      220.4 seconds, not 240.0 seconds.
+    </p>
+    <p>
+      If frame folders are unavailable, the code falls back to the nominal
+      <code>--chunk-sec</code> spacing. Ignored and conflicted source-chunk
+      checks use the same recovered intervals, so their filtering matches the
+      corrected multimodal alignment.
+    </p>
+  </div>
+
+  <h2>Filtering</h2>
+  <div class="panel">
+    <p>
+      Source chunk filtering uses <code>/home/prj/data/egocom_holdout/ignore_video_chunks/{split}.txt</code>.
+      A row is dropped when the source window overlaps any listed chunk. This
+      removes manually rejected mirror-conflict regions without removing the
+      full original video.
+    </p>
+    <p>
+      Mapping-conflicted chunks are also excluded before loading feature streams.
+      The builder reads <code>person_face_mapping/*/summary.json</code>, marks
+      chunks with conflict segments or fully conflicted fallback status, skips
+      those chunk files, and drops windows whose source interval overlaps them.
+    </p>
+    <p>
+      Fully absent target visual windows are also dropped. A window is fully
+      absent when its target CLIP <code>frame_statuses</code> contain no
+      <code>masked</code> frame. The drop counter is
+      <code>fully_absent_target_visual</code>.
+    </p>
+    <p>
+      Test windows additionally require at least 25 percent valid target
+      geometry. With the default 4-second test crop this means at least 5 of
+      20 geometry frames must be valid. The drop counter is
+      <code>low_geometry_valid_ratio</code>.
+    </p>
+    <p>
+      All splits now drop the final tail when it is shorter than the configured
+      window length. Train and validation keep only complete 6-second windows,
+      and test keeps only complete 4-second windows.
+    </p>
+    <p>
+      The 10-second outputs follow the same tail rule: final segments shorter
+      than 10 seconds are dropped. No 10-second output pads the final partial
+      window.
+    </p>
+    <p>
+      Raw text rows can still be <code>null</code>, but the T5 features were
+      encoded from <code>The target person is not visible.</code> for those
+      frames.
+    </p>
+    <p>
+      Optional small test manifests can be restricted with
+      <code>--audio-stem-allowlist</code>. This is an exact source/target
+      original-audio filter: both people in a pair must have stems in the
+      allowlist. The option requires at least one stem, is separate from
+      duration filtering, and avoids pulling in other videos that happen to be
+      shorter than a threshold.
+    </p>
+  </div>
+
+  <h2>10-Second Manifests</h2>
+  <div class="panel">
+    <p>
+      The 10-second full train output uses 5-second overlap, so starts advance
+      by 25 frames at 5 FPS. The 10-second full validation and test outputs are
+      non-overlap, so starts advance by 50 frames.
+    </p>
+    <p>
+      Strict alignment is identical to the 6-second and 4-second builds. For
+      each row, audio covers <code>[clip_start_ms, clip_end_ms)</code>, and
+      geometry, CLIP, and T5 all slice the same
+      <code>[aligned_start_frame, aligned_end_frame)</code> interval. For a
+      10-second row, that interval always contains 50 frames.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Output</th><th>Rows</th><th>Video Clips</th><th>Window</th><th>Stride</th><th>Partial Tail</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/home/prj/data/egocom_holdout/10s_overlap0.5_v2/train</code></td>
+          <td>30544</td>
+          <td>Not written</td>
+          <td>10 seconds, 50 frames</td>
+          <td>5 seconds, 25 frames</td>
+          <td>Dropped</td>
+        </tr>
+        <tr>
+          <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2/val</code></td>
+          <td>1404</td>
+          <td>798</td>
+          <td>10 seconds, 50 frames</td>
+          <td>10 seconds, 50 frames</td>
+          <td>Dropped</td>
+        </tr>
+        <tr>
+          <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2/test</code></td>
+          <td>2326</td>
+          <td>1755</td>
+          <td>10 seconds, 50 frames</td>
+          <td>10 seconds, 50 frames</td>
+          <td>Dropped</td>
+        </tr>
+        <tr>
+          <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2_day1_con2_parts/val</code></td>
+          <td>588</td>
+          <td>330</td>
+          <td>10 seconds, 50 frames</td>
+          <td>10 seconds, 50 frames</td>
+          <td>Dropped</td>
+        </tr>
+        <tr>
+          <td><code>/home/prj/data/egocom_holdout/10s_overlap0_v2_day1_con4_parts/test</code></td>
+          <td>487</td>
+          <td>303</td>
+          <td>10 seconds, 50 frames</td>
+          <td>10 seconds, 50 frames</td>
+          <td>Dropped</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Video clips are written only for the 10-second validation and test
+      outputs by passing <code>--write-video-windows</code>. The default
+      <code>--video-window-mode accurate</code> re-encodes MP4 clips with the
+      same <code>[clip_start_ms, clip_end_ms)</code> interval stored in each
+      manifest row. The default <code>--video-window-audio window</code> muxes
+      the matching generated WAV window into the MP4, so each video clip can be
+      opened directly to inspect audio-video alignment.
+    </p>
+  </div>
+
+  <h2>Small Validation Test Manifest</h2>
+  <div class="panel">
+    <p>
+      The small test output is built from only the 12 original test audio files
+      for <code>day_1__con_4</code> parts 1 through 4 and persons 1 through 3.
+      It does not include near-20-minute videos such as
+      <code>day_5__con_7</code> or <code>day_6__con_4</code>.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Allowed Original Audio Stems</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>vid_043__day_1__con_4__person_1_part1</code></td></tr>
+        <tr><td><code>vid_044__day_1__con_4__person_1_part2</code></td></tr>
+        <tr><td><code>vid_045__day_1__con_4__person_1_part3</code></td></tr>
+        <tr><td><code>vid_046__day_1__con_4__person_1_part4</code></td></tr>
+        <tr><td><code>vid_047__day_1__con_4__person_2_part1</code></td></tr>
+        <tr><td><code>vid_048__day_1__con_4__person_2_part2</code></td></tr>
+        <tr><td><code>vid_049__day_1__con_4__person_2_part3</code></td></tr>
+        <tr><td><code>vid_050__day_1__con_4__person_2_part4</code></td></tr>
+        <tr><td><code>vid_051__day_1__con_4__person_3_part1</code></td></tr>
+        <tr><td><code>vid_052__day_1__con_4__person_3_part2</code></td></tr>
+        <tr><td><code>vid_053__day_1__con_4__person_3_part3</code></td></tr>
+        <tr><td><code>vid_054__day_1__con_4__person_3_part4</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Current generated manifest:
+      <code>/home/prj/data/egocom_holdout/4s_overlap0_v2_day1_con4_parts/test/manifest/manifest_mm.jsonl</code>.
+      The last verified build emitted 1167 rows and recorded 12 stems in
+      <code>build_summary_mm.json</code>.
+    </p>
+  </div>
+
+  <h2>Small Validation Val Manifest</h2>
+  <div class="panel">
+    <p>
+      The small validation output is built from only the 15 original validation
+      audio files for <code>day_1__con_2</code> parts 1 through 5 and persons
+      1 through 3. It keeps the normal validation window policy: 6-second
+      windows, 3-second stride, and no partial tail windows.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Allowed Original Audio Stems</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>vid_016__day_1__con_2__person_1_part1</code></td></tr>
+        <tr><td><code>vid_017__day_1__con_2__person_1_part2</code></td></tr>
+        <tr><td><code>vid_018__day_1__con_2__person_1_part3</code></td></tr>
+        <tr><td><code>vid_019__day_1__con_2__person_1_part4</code></td></tr>
+        <tr><td><code>vid_020__day_1__con_2__person_1_part5</code></td></tr>
+        <tr><td><code>vid_021__day_1__con_2__person_2_part1</code></td></tr>
+        <tr><td><code>vid_022__day_1__con_2__person_2_part2</code></td></tr>
+        <tr><td><code>vid_023__day_1__con_2__person_2_part3</code></td></tr>
+        <tr><td><code>vid_024__day_1__con_2__person_2_part4</code></td></tr>
+        <tr><td><code>vid_025__day_1__con_2__person_2_part5</code></td></tr>
+        <tr><td><code>vid_026__day_1__con_2__person_3_part1</code></td></tr>
+        <tr><td><code>vid_027__day_1__con_2__person_3_part2</code></td></tr>
+        <tr><td><code>vid_028__day_1__con_2__person_3_part3</code></td></tr>
+        <tr><td><code>vid_029__day_1__con_2__person_3_part4</code></td></tr>
+        <tr><td><code>vid_030__day_1__con_2__person_3_part5</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      Current generated manifest:
+      <code>/home/prj/data/egocom_holdout/6s_overlap0.5_v2_day1_con2_parts/val/manifest/manifest_mm.jsonl</code>.
+      The last verified build emitted 1932 rows and recorded 15 stems in
+      <code>build_summary_mm.json</code>.
+    </p>
+  </div>
+
+  <h2>Output Files</h2>
+  <table>
+    <thead>
+      <tr><th>Directory</th><th>Contents</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>audio/</code></td><td>Source and target WAV windows.</td></tr>
+      <tr><td><code>video/</code></td><td>Optional source and target MP4 windows from original videos, muxed with the matching generated WAV window by default.</td></tr>
+      <tr><td><code>depth_xy_ray/</code></td><td>Target geometry sidecars with <code>x_ray</code>, <code>y_ray</code>, and <code>d</code>.</td></tr>
+      <tr><td><code>clip_features/</code></td><td>Target CLIP feature windows and per-frame status metadata.</td></tr>
+      <tr><td><code>t5_text_features/</code></td><td>Target T5 feature windows with raw text, encoded text, and null-frame metadata.</td></tr>
+      <tr><td><code>manifest/</code></td><td><code>manifest_mm.jsonl</code> and <code>build_summary_mm.json</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Commands</h2>
+  <div class="panel small">
+    <p><code>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits train,val --overwrite</code></p>
+    <p><code>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits test --overwrite</code></p>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits train \
+  --window-sec 10 \
+  --overlap 0.5 \
+  --output-tag 10s_overlap0.5_v2 \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits val,test \
+  --window-sec 10 \
+  --overlap 0 \
+  --output-tag 10s_overlap0_v2 \
+  --write-video-windows \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits val \
+  --window-sec 10 \
+  --overlap 0 \
+  --output-tag 10s_overlap0_v2_day1_con2_parts \
+  --audio-stem-allowlist \
+  vid_016__day_1__con_2__person_1_part1 \
+  vid_017__day_1__con_2__person_1_part2 \
+  vid_018__day_1__con_2__person_1_part3 \
+  vid_019__day_1__con_2__person_1_part4 \
+  vid_020__day_1__con_2__person_1_part5 \
+  vid_021__day_1__con_2__person_2_part1 \
+  vid_022__day_1__con_2__person_2_part2 \
+  vid_023__day_1__con_2__person_2_part3 \
+  vid_024__day_1__con_2__person_2_part4 \
+  vid_025__day_1__con_2__person_2_part5 \
+  vid_026__day_1__con_2__person_3_part1 \
+  vid_027__day_1__con_2__person_3_part2 \
+  vid_028__day_1__con_2__person_3_part3 \
+  vid_029__day_1__con_2__person_3_part4 \
+  vid_030__day_1__con_2__person_3_part5 \
+  --write-video-windows \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits test \
+  --window-sec 10 \
+  --overlap 0 \
+  --output-tag 10s_overlap0_v2_day1_con4_parts \
+  --audio-stem-allowlist \
+  vid_043__day_1__con_4__person_1_part1 \
+  vid_044__day_1__con_4__person_1_part2 \
+  vid_045__day_1__con_4__person_1_part3 \
+  vid_046__day_1__con_4__person_1_part4 \
+  vid_047__day_1__con_4__person_2_part1 \
+  vid_048__day_1__con_4__person_2_part2 \
+  vid_049__day_1__con_4__person_2_part3 \
+  vid_050__day_1__con_4__person_2_part4 \
+  vid_051__day_1__con_4__person_3_part1 \
+  vid_052__day_1__con_4__person_3_part2 \
+  vid_053__day_1__con_4__person_3_part3 \
+  vid_054__day_1__con_4__person_3_part4 \
+  --write-video-windows \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits test \
+  --output-tag 4s_overlap0_v2_day1_con4_parts \
+  --audio-stem-allowlist \
+  vid_043__day_1__con_4__person_1_part1 \
+  vid_044__day_1__con_4__person_1_part2 \
+  vid_045__day_1__con_4__person_1_part3 \
+  vid_046__day_1__con_4__person_1_part4 \
+  vid_047__day_1__con_4__person_2_part1 \
+  vid_048__day_1__con_4__person_2_part2 \
+  vid_049__day_1__con_4__person_2_part3 \
+  vid_050__day_1__con_4__person_2_part4 \
+  vid_051__day_1__con_4__person_3_part1 \
+  vid_052__day_1__con_4__person_3_part2 \
+  vid_053__day_1__con_4__person_3_part3 \
+  vid_054__day_1__con_4__person_3_part4 \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+  --splits val \
+  --output-tag 6s_overlap0.5_v2_day1_con2_parts \
+  --audio-stem-allowlist \
+  vid_016__day_1__con_2__person_1_part1 \
+  vid_017__day_1__con_2__person_1_part2 \
+  vid_018__day_1__con_2__person_1_part3 \
+  vid_019__day_1__con_2__person_1_part4 \
+  vid_020__day_1__con_2__person_1_part5 \
+  vid_021__day_1__con_2__person_2_part1 \
+  vid_022__day_1__con_2__person_2_part2 \
+  vid_023__day_1__con_2__person_2_part3 \
+  vid_024__day_1__con_2__person_2_part4 \
+  vid_025__day_1__con_2__person_2_part5 \
+  vid_026__day_1__con_2__person_3_part1 \
+  vid_027__day_1__con_2__person_3_part2 \
+  vid_028__day_1__con_2__person_3_part3 \
+  vid_029__day_1__con_2__person_3_part4 \
+  vid_030__day_1__con_2__person_3_part5 \
+  --overwrite</pre>
+    <p>
+      The test command uses <code>--test-min-geometry-valid-ratio 0.25</code>
+      by default. Set it to a negative value only when deliberately disabling
+      that filter.
+    </p>
+    <p>
+      These commands write new multimodal manifests and summaries without
+      replacing existing <code>manifest.jsonl</code> files. Existing audio,
+      geometry, and CLIP sidecars are reused when present; the new T5 sidecars
+      and multimodal manifest can be regenerated with <code>--overwrite</code>.
+    </p>
+  </div>
+</main>
+</body>
+</html>
