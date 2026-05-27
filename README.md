@@ -17,6 +17,7 @@ flowchart TD
     merged_report[Merged segment reports<br/>report_merged_segments.py]
     lift[Person depth lift<br/>extract_person_depth_lift.py]
     clip[Masked person CLIP features<br/>extract_person_visual_clip.py]
+    pe[Mask-pooled positional encoding<br/>extract_pe.py]
     text[InternVL2 spatial text<br/>extract_person_internvl2_text.py]
     t5[T5 spatial text features<br/>extract_person_t5_text_features.py]
     manifest[Windowed multimodal manifest<br/>build_egocom_window_manifest.py]
@@ -33,11 +34,14 @@ flowchart TD
     remap --> merged_report
     remap --> lift
     remap --> clip
+    remap --> pe
     remap --> text
     depth --> lift
     text --> t5
     lift --> manifest
     clip --> manifest
+    pe --> manifest
+    t5 --> manifest
     raw --> manifest
 ```
 
@@ -58,12 +62,13 @@ Use the table below to open each detailed HTML reference.
 | 8 | Inspect merged/remapped cases | [Person Mapping Outputs Guide](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_face_report_outputs_guide.html) | `report_merged_segments.py` | Merged segment report files |
 | 9a | Lift mapped persons into depth summaries | [Person Depth Lift](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_depth_lift_explanation.html) | `extract_person_depth_lift.py` | `{split}/person_depth_lift/{scene}/person_{id}` |
 | 9b | Extract masked visual CLIP features | [Masked Person CLIP Features](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_visual_clip_explanation.html) | `extract_person_visual_clip.py` | `{split}/person_visual_clip_features/{scene}/person_{id}` |
-| 9c | Generate spatial text | [Person Spatial Text Features](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_spatial_text_features_explanation.html) | `extract_person_internvl2_text.py` | `{split}/person_spatial_internvl2_text/{scene}/person_{id}` |
-| 10c | Encode spatial text with T5 | [Person Spatial Text Features](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_spatial_text_features_explanation.html) | `extract_person_t5_text_features.py` | `{split}/person_spatial_t5_features/{scene}/person_{id}` |
-| 11 | Build windowed multimodal manifest | Final packaging step | `build_egocom_window_manifest.py` | `{output_tag}/{split}/jsonl/manifest.jsonl`, audio windows, depth rays, CLIP features |
+| 9c | Extract positional encoding features | [Mask-Pooled Positional Encoding](extract_pe_explanation.html) | `extract_pe.py` | `{split}/person_pe_features/{scene}/person_{id}` |
+| 9d | Generate spatial text | [Person Spatial Text Features](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_spatial_text_features_explanation.html) | `extract_person_internvl2_text.py` | `{split}/person_spatial_internvl2_text/{scene}/person_{id}` |
+| 10d | Encode spatial text with T5 | [Person Spatial Text Features](https://htmlpreview.github.io/?https://github.com/beautifulchoi/egocom-preprocess/blob/main/person_spatial_text_features_explanation.html) | `extract_person_t5_text_features.py` | `{split}/person_spatial_t5_features/{scene}/person_{id}` |
+| 11 | Build windowed multimodal manifest | Final packaging step | `build_egocom_window_manifest.py` | `{output_tag}/{split}/jsonl/manifest.jsonl`, audio windows, depth rays, CLIP, PE, and T5 features |
 
 ## Dependency Notes
 
-- Stages `9a`, `9b`, and `9c` can run after all-chunk remapping is available.
-- The window manifest currently consumes person depth-lift outputs, person visual CLIP features, and original audio.
-- Spatial text and T5 features are produced as a parallel person-level feature branch.
+- Stages `9a`, `9b`, `9c`, and `9d` can run after all-chunk remapping is available.
+- The window manifest currently consumes person depth-lift outputs, person visual CLIP features, mask-pooled PE features, T5 features, and original audio.
+- Spatial text/T5 and PE features are produced as parallel person-level feature branches.

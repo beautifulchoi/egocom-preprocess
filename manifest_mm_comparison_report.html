@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Manifest Comparison Report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5f6b76;
+      --line: #cfd8dc;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+      --blue: #2563eb;
+      --green: #17803d;
+      --gold: #9a6700;
+      --red: #b42318;
+      --purple: #6d28d9;
+      --gray: #607d8b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 22px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #10212b;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      margin: 12px 0 20px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric strong { display: block; font-size: 22px; margin-top: 4px; }
+    .small { font-size: 13px; }
+    .warn { border-left: 4px solid var(--gold); }
+    .bad { color: var(--red); font-weight: 700; }
+    .good { color: var(--green); font-weight: 700; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin: 14px 0 22px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Manifest Comparison Report</h1>
+  <p>
+    This report compares the legacy curated manifest files
+    <code>manifest.jsonl</code> with the new multimodal manifest files
+    <code>manifest_mm.jsonl</code> under
+    <code>/home/prj/data/egocom_holdout</code>. The comparison is based on
+    manifest row counts and accumulated media window duration, not disk size.
+  </p>
+
+  <div class="grid">
+    <div class="metric">
+      <span>Train row difference</span>
+      <strong>-1,459</strong>
+      <span class="small">50,042 to 48,583</span>
+    </div>
+    <div class="metric">
+      <span>Val row difference</span>
+      <strong>-200</strong>
+      <span class="small">4,730 to 4,530</span>
+    </div>
+    <div class="metric">
+      <span>Test row difference</span>
+      <strong>-131</strong>
+      <span class="small">5,676 to 5,545</span>
+    </div>
+  </div>
+
+  <h2>Pipeline Difference</h2>
+  <svg viewBox="0 0 1120 380" role="img" aria-label="Legacy and multimodal manifest pipeline comparison">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M0,0 L10,4 L0,8 Z" fill="#5f6b76"></path>
+      </marker>
+    </defs>
+
+    <text x="34" y="36" font-size="22" font-weight="700" fill="#172026">Legacy manifest.jsonl</text>
+    <rect x="34" y="58" width="210" height="70" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
+    <text x="54" y="88" font-size="15" fill="#172026">1-minute chunks</text>
+    <text x="54" y="112" font-size="13" fill="#5f6b76">audio, geometry, CLIP</text>
+
+    <rect x="296" y="58" width="220" height="70" rx="8" fill="#fff7e0" stroke="#9a6700"></rect>
+    <text x="316" y="88" font-size="15" fill="#172026">Legacy filters</text>
+    <text x="316" y="112" font-size="13" fill="#5f6b76">ignore_video_chunks only</text>
+
+    <rect x="568" y="58" width="220" height="70" rx="8" fill="#eef8f0" stroke="#17803d"></rect>
+    <text x="588" y="88" font-size="15" fill="#172026">Fixed windows</text>
+    <text x="588" y="112" font-size="13" fill="#5f6b76">drops final short tail</text>
+
+    <rect x="840" y="58" width="220" height="70" rx="8" fill="#edf4f7" stroke="#607d8b"></rect>
+    <text x="860" y="88" font-size="15" fill="#172026">manifest.jsonl</text>
+    <text x="860" y="112" font-size="13" fill="#5f6b76">audio, geometry, CLIP rows</text>
+
+    <line x1="244" y1="93" x2="296" y2="93" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="516" y1="93" x2="568" y2="93" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="788" y1="93" x2="840" y2="93" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+
+    <text x="34" y="206" font-size="22" font-weight="700" fill="#172026">Multimodal manifest_mm.jsonl</text>
+    <rect x="34" y="228" width="210" height="82" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
+    <text x="54" y="258" font-size="15" fill="#172026">1-minute chunks</text>
+    <text x="54" y="282" font-size="13" fill="#5f6b76">audio, geometry, CLIP, T5</text>
+
+    <rect x="296" y="228" width="220" height="82" rx="8" fill="#fff1f0" stroke="#b42318"></rect>
+    <text x="316" y="258" font-size="15" fill="#172026">Extra filters</text>
+    <text x="316" y="282" font-size="13" fill="#5f6b76">ignore list + conflicts</text>
+    <text x="316" y="302" font-size="13" fill="#5f6b76">CLIP/T5 alignment</text>
+
+    <rect x="568" y="228" width="220" height="82" rx="8" fill="#f3e8ff" stroke="#6d28d9"></rect>
+    <text x="588" y="258" font-size="15" fill="#172026">Split windows</text>
+    <text x="588" y="282" font-size="13" fill="#5f6b76">train/val drop tail</text>
+    <text x="588" y="302" font-size="13" fill="#5f6b76">test pads final tail</text>
+
+    <rect x="840" y="228" width="220" height="82" rx="8" fill="#edf4f7" stroke="#607d8b"></rect>
+    <text x="860" y="258" font-size="15" fill="#172026">manifest_mm.jsonl</text>
+    <text x="860" y="282" font-size="13" fill="#5f6b76">adds T5 feature sidecars</text>
+    <text x="860" y="302" font-size="13" fill="#5f6b76">does not replace legacy file</text>
+
+    <line x1="244" y1="269" x2="296" y2="269" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="516" y1="269" x2="568" y2="269" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="788" y1="269" x2="840" y2="269" stroke="#5f6b76" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+
+  <h2>Manifest Length Comparison</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Split</th>
+        <th>Legacy rows</th>
+        <th>MM rows</th>
+        <th>Net rows</th>
+        <th>Legacy duration</th>
+        <th>MM duration</th>
+        <th>Net duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>train</code></td>
+        <td>50,042</td>
+        <td>48,583</td>
+        <td class="bad">-1,459</td>
+        <td>83.40 h</td>
+        <td>80.97 h</td>
+        <td class="bad">-2.43 h</td>
+      </tr>
+      <tr>
+        <td><code>val</code></td>
+        <td>4,730</td>
+        <td>4,530</td>
+        <td class="bad">-200</td>
+        <td>7.88 h</td>
+        <td>7.55 h</td>
+        <td class="bad">-0.33 h</td>
+      </tr>
+      <tr>
+        <td><code>test</code></td>
+        <td>5,676</td>
+        <td>5,545</td>
+        <td class="bad">-131</td>
+        <td>6.31 h</td>
+        <td>6.16 h</td>
+        <td class="bad">-0.15 h</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Row Set Difference</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Split</th>
+        <th>Rows removed from legacy</th>
+        <th>Rows added in MM</th>
+        <th>Main reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>train</code></td>
+        <td>1,459 rows / 2.43 h</td>
+        <td>0 rows / 0.00 h</td>
+        <td>Source windows overlap chunks marked by <code>chunk_attempts.conflict_segments &gt; 0</code>.</td>
+      </tr>
+      <tr>
+        <td><code>val</code></td>
+        <td>200 rows / 0.33 h</td>
+        <td>0 rows / 0.00 h</td>
+        <td>Source windows overlap chunks marked by <code>chunk_attempts.conflict_segments &gt; 0</code>.</td>
+      </tr>
+      <tr>
+        <td><code>test</code></td>
+        <td>168 rows / 0.19 h</td>
+        <td>37 rows / 0.04 h</td>
+        <td>168 rows removed by conflict filtering; 37 rows added by padded final test tails.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="panel warn">
+    <h3>Important Interpretation</h3>
+    <p>
+      The current <code>manifest_mm.jsonl</code> build filters any source
+      window overlapping a chunk where <code>chunk_attempts</code> has
+      <code>conflict_segments &gt; 0</code>. This can remove rows even when the
+      scene-level mapping summary says <code>fallback_status:
+      resolved_without_conflict</code> and <code>conflict_segments: 0</code>.
+    </p>
+    <p>
+      Example: <code>day_1__con_1__part4</code> has
+      <code>selected_chunk: 2</code> and overall
+      <code>resolved_without_conflict</code>, but chunk 1 has
+      <code>chunk_attempts.conflict_segments: 2</code>. The MM manifest removes
+      source windows from chunk 1.
+    </p>
+  </div>
+
+  <h2>Filter Counter Comparison</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Split</th>
+        <th>Legacy drop counters</th>
+        <th>MM drop counters</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>train</code></td>
+        <td>
+          <code>ignored_source_video_chunk=1673</code><br>
+          <code>no_valid_geometry_in_window=9617</code><br>
+          <code>missing_target_geometry=4</code><br>
+          <code>no_complete_window=1</code>
+        </td>
+        <td>
+          <code>ignored_source_video_chunk=1673</code><br>
+          <code>conflicted_source_video_chunk=1900</code><br>
+          <code>fully_absent_target_visual=5017</code><br>
+          <code>no_valid_clip_in_window=3811</code><br>
+          <code>no_valid_geometry_in_window=348</code><br>
+          <code>missing_target_geometry=4</code><br>
+          <code>no_complete_window=1</code>
+        </td>
+      </tr>
+      <tr>
+        <td><code>val</code></td>
+        <td>
+          <code>ignored_source_video_chunk=248</code><br>
+          <code>no_valid_geometry_in_window=704</code>
+        </td>
+        <td>
+          <code>ignored_source_video_chunk=248</code><br>
+          <code>conflicted_source_video_chunk=240</code><br>
+          <code>fully_absent_target_visual=384</code><br>
+          <code>no_valid_clip_in_window=253</code><br>
+          <code>no_valid_geometry_in_window=27</code>
+        </td>
+      </tr>
+      <tr>
+        <td><code>test</code></td>
+        <td>
+          <code>low_geometry_valid_ratio=448</code><br>
+          <code>fully_absent_target_visual=814</code><br>
+          <code>no_valid_clip_in_window=368</code><br>
+          <code>no_valid_geometry_in_window=52</code><br>
+          <code>missing_target_geometry=3</code>
+        </td>
+        <td>
+          <code>conflicted_source_video_chunk=285</code><br>
+          <code>low_geometry_valid_ratio=422</code><br>
+          <code>fully_absent_target_visual=747</code><br>
+          <code>no_valid_clip_in_window=353</code><br>
+          <code>no_valid_geometry_in_window=48</code><br>
+          <code>missing_target_geometry=3</code>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Concrete Examples</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>Where to inspect</th>
+        <th>What happened</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Train row removed</td>
+        <td>
+          <code>/home/prj/data/egocom_holdout/1min/train/person_face_mapping/day_1__con_1__part4/summary.json</code>
+        </td>
+        <td>
+          Legacy row using <code>vid_004__day_1__con_1__person_1_part4_chunk_0001</code>
+          exists in <code>manifest.jsonl</code>. MM removes it because chunk 1
+          has <code>chunk_attempts.conflict_segments=2</code>, even though the
+          final selected chunk is 2 and the overall status is resolved.
+        </td>
+      </tr>
+      <tr>
+        <td>Val row removed</td>
+        <td>
+          <code>/home/prj/data/egocom_holdout/1min/val/person_face_mapping/day_5__con_5/summary.json</code>
+        </td>
+        <td>
+          Rows from <code>vid_146__day_5__con_5__person_1_chunk_0001</code>
+          are removed in MM because chunk 1 has
+          <code>chunk_attempts.conflict_segments=2</code>. The scene overall is
+          still <code>resolved_without_conflict</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>Test row added</td>
+        <td>
+          <code>/home/prj/data/egocom_holdout/4s_overlap0/test/manifest/manifest_mm.jsonl</code>
+        </td>
+        <td>
+          MM includes padded final tail rows such as
+          <code>288000-292000 ms</code> for
+          <code>vid_043__day_1__con_4__person_1_part1</code>. The legacy
+          manifest dropped final short tails.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Current Output Files</h2>
+  <table>
+    <thead>
+      <tr><th>Split</th><th>Legacy manifest</th><th>MM manifest</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>train</code></td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5/train/manifest/manifest.jsonl</code></td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5/train/manifest/manifest_mm.jsonl</code></td>
+      </tr>
+      <tr>
+        <td><code>val</code></td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5/val/manifest/manifest.jsonl</code></td>
+        <td><code>/home/prj/data/egocom_holdout/6s_overlap0.5/val/manifest/manifest_mm.jsonl</code></td>
+      </tr>
+      <tr>
+        <td><code>test</code></td>
+        <td><code>/home/prj/data/egocom_holdout/4s_overlap0/test/manifest/manifest.jsonl</code></td>
+        <td><code>/home/prj/data/egocom_holdout/4s_overlap0/test/manifest/manifest_mm.jsonl</code></td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

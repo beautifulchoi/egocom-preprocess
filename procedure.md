@@ -1,6 +1,6 @@
 # EgoCom Preprocessing Procedure
 
-This document aggregates the repository README and the HTML stage descriptions into one end-to-end view of how the EgoCom preprocessing pipeline proceeds. The pipeline starts from raw 1-minute EgoCom chunks and produces person-aware, frame-aligned multimodal windows with audio, geometry, visual CLIP features, and spatial text features.
+This document aggregates the repository README and the HTML stage descriptions into one end-to-end view of how the EgoCom preprocessing pipeline proceeds. The pipeline starts from raw 1-minute EgoCom chunks and produces person-aware, frame-aligned multimodal windows with audio, geometry, visual CLIP features, positional encoding features, and spatial text features.
 
 ## Overall Flow
 
@@ -17,6 +17,7 @@ flowchart TD
     merge_reports[Merged segment reports\nreport_merged_segments.py]
     lift[Person depth lift\nextract_person_depth_lift.py]
     clip[Masked person CLIP features\nextract_person_visual_clip.py]
+    pe[Mask-pooled positional encoding\nextract_pe.py]
     text[InternVL2 spatial text\nextract_person_internvl2_text.py]
     t5[T5 text features\nextract_person_t5_text_features.py]
     manifest[Windowed multimodal manifest\nbuild_egocom_window_manifest.py]
@@ -33,11 +34,13 @@ flowchart TD
     remap --> merge_reports
     remap --> lift
     remap --> clip
+    remap --> pe
     remap --> text
     depth --> lift
     text --> t5
     lift --> manifest
     clip --> manifest
+    pe --> manifest
     t5 --> manifest
     raw --> manifest
 ```
@@ -69,9 +72,10 @@ The key dependency chain is:
 | 8 | Merged segment reports | `report_merged_segments.py` | Remap outputs | `{split}/person_face_mapping/merged_segments_report.html` |
 | 9a | Person depth lift | `extract_person_depth_lift.py` | Remap chains, refined masks, face boxes, DA3 depth, intrinsics | `{split}/person_depth_lift/{scene}/person_{id}/{video}.npz` |
 | 9b | Masked person CLIP | `extract_person_visual_clip.py` | Remap chains, refined masks, frames | `{split}/person_visual_clip_features/{scene}/person_{id}/{video}.pt` |
-| 9c | Spatial text | `extract_person_internvl2_text.py` | Remap chains, refined masks, frames | `{split}/person_spatial_internvl2_text/{scene}/person_{id}/{video}.txt` |
-| 10c | T5 text features | `extract_person_t5_text_features.py` | InternVL2 text | `{split}/person_spatial_t5_features/{scene}/person_{id}/{video}.pt` |
-| 11 | Window manifest | `build_egocom_window_manifest.py` | Audio, depth lift, CLIP, T5 features | Window sidecars and `manifest_mm.jsonl` |
+| 9c | Positional encoding features | `extract_pe.py` | Remap chains, refined masks, frames | `{split}/person_pe_features/{scene}/person_{id}/{video}.pt` |
+| 9d | Spatial text | `extract_person_internvl2_text.py` | Remap chains, refined masks, frames | `{split}/person_spatial_internvl2_text/{scene}/person_{id}/{video}.txt` |
+| 10d | T5 text features | `extract_person_t5_text_features.py` | InternVL2 text | `{split}/person_spatial_t5_features/{scene}/person_{id}/{video}.pt` |
+| 11 | Window manifest | `build_egocom_window_manifest.py` | Audio, depth lift, CLIP, PE, T5 features | Window sidecars and `manifest_mm.jsonl` |
 
 ## 0. Source Dataset Layout
 
@@ -417,7 +421,31 @@ python /home/prj/egocom_preprocess/extract_person_visual_clip.py --split val
 
 Use `--scene_key`, `--video`, or `--limit` for smaller runs, and `--overwrite` to regenerate existing feature files.
 
-## 9c. Generate Spatial Text With InternVL2
+## 9c. Extract Mask-Pooled Positional Encoding Features
+
+[`extract_pe.py`](extract_pe.py) produces ViT-style positional encoding features for each mapped person track; implementation details are summarized in [`extract_pe_explanation.html`](extract_pe_explanation.html). It builds either a 2D sinusoidal table or a standalone 2D RoPE sin/cos table, resizes each target-person mask to the patch grid, and averages positional vectors over the covered patch area.
+
+Inputs and output:
+
+```text
+Input:  {split}/person_face_mapping/*/remap_all_chunks.json
+Input:  {split}/refined_mask/{video}/mask.pt
+Input:  {split}/frame/{video}/frame_XXXXXX.jpg
+Output: {split}/person_pe_features/{scene}/person_{id}/{video}.pt
+```
+
+Each `.pt` file stores frame-aligned `features` with shape `(num_source_frames, hidden_size)`, plus frame stems, segment ids, mask pixel counts, resized mask grid sums, and PE configuration metadata. Frames with absent mapped masks receive zero vectors so the sequence stays aligned.
+
+Commands:
+
+```bash
+python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type sinusoidal
+python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type rope
+```
+
+Use `--patches_per_side`, `--hidden_size`, and `--pe_scale` to change the PE grid. Defaults are `16`, `768`, and `1.0`.
+
+## 9d. Generate Spatial Text With InternVL2
 
 `extract_person_internvl2_text.py` converts mapped person masks into frame-aligned spatial language. It uses the final remap chains, refined masks, and RGB frames to build a query pair: one image containing the masked person and one image containing the original frame. InternVL2 then writes one response line per frame.
 
@@ -446,7 +474,7 @@ python /home/prj/egocom_preprocess/extract_person_internvl2_text.py --split val 
 python /home/prj/egocom_preprocess/extract_person_internvl2_text.py --split val --min_mask_pixels 100
 ```
 
-## 10c. Encode Spatial Text With T5
+## 10d. Encode Spatial Text With T5
 
 `extract_person_t5_text_features.py` encodes the InternVL2 text into T5-XXL pooled text features while preserving frame alignment. Each text line corresponds to one source frame, and each feature vector corresponds to one text line.
 
@@ -467,7 +495,7 @@ python /home/prj/egocom_preprocess/extract_person_t5_text_features.py --split va
 
 ## 11. Build Windowed Multimodal Manifest
 
-`build_egocom_window_manifest.py` merges 1-minute chunk outputs into shorter multimodal samples. Each manifest row contains source and target audio windows, target geometry observed from the source camera, target CLIP visual features, and target T5 text features aligned on the same 5 FPS frame grid.
+`build_egocom_window_manifest.py` merges 1-minute chunk outputs into shorter multimodal samples. Each manifest row contains source and target audio windows, target geometry observed from the source camera, target CLIP visual features, target PE features, and target T5 text features aligned on the same 5 FPS frame grid.
 
 Default split policy:
 
@@ -494,6 +522,7 @@ Output directories:
 audio/
 depth_xy_ray/
 clip_features/
+pe_features/
 t5_text_features/
 manifest/manifest_mm.jsonl
 manifest/build_summary_mm.json
@@ -506,7 +535,7 @@ python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits trai
 python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits test --overwrite
 ```
 
-The new multimodal manifest and T5 sidecars can be regenerated with `--overwrite`. Existing audio, geometry, and CLIP sidecars are reused when present.
+The new multimodal manifest and T5 sidecars can be regenerated with `--overwrite`. Existing audio, geometry, CLIP, and PE sidecars are reused when present.
 
 ## Validation Checkpoints
 

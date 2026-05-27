@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Mask-Pooled CLIP And DA3 Features</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6872;
+      --line: #cfd8dc;
+      --blue: #2563eb;
+      --green: #17803d;
+      --gold: #9a6700;
+      --red: #c2410c;
+      --violet: #7c3aed;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      color: #10212b;
+    }
+    code {
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #eef3f6;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      overflow: auto;
+      white-space: pre;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .small { font-size: 13px; }
+    .note {
+      border-left: 4px solid var(--blue);
+      padding: 12px 16px;
+      background: #eef6ff;
+      color: var(--muted);
+      margin: 16px 0;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Mask-Pooled CLIP And DA3 Features</h1>
+  <p>
+    This document describes the two frame-aligned masked feature extractors:
+    <code>extract_person_masked_clip.py</code> and
+    <code>extract_person_masked_da3.py</code>. Both run the model on the full
+    RGB frame, align the mapped person mask to the model's spatial feature
+    grid, and average only the features covered by that mask.
+  </p>
+  <p>
+    This is different from <code>extract_person_visual_clip.py</code>, which
+    blacks out non-person pixels before running CLIP and then saves CLIP's
+    global image feature. The mask-pooled extractors preserve the original
+    full-frame model input and apply the mask at the spatial feature level.
+  </p>
+
+  <h2>Inputs And Outputs</h2>
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Path</th><th>Use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Person mapping</td>
+        <td><code>{split}/person_face_mapping/*/remap_all_chunks.json</code></td>
+        <td>Maps final scene person ids to one or more local refined-mask segment ids.</td>
+      </tr>
+      <tr>
+        <td>Refined masks</td>
+        <td><code>{split}/refined_mask/{video}/mask.pt</code></td>
+        <td>Stores frame-indexed masks keyed by local segment id.</td>
+      </tr>
+      <tr>
+        <td>Frames</td>
+        <td><code>{split}/frame/{video}/*.jpg</code></td>
+        <td>Provides source RGB frames and defines frame order.</td>
+      </tr>
+      <tr>
+        <td>Masked CLIP output</td>
+        <td><code>{split}/person_masked_clip_features/{scene}/person_{id}/{video}.pt</code></td>
+        <td>Stores mask-pooled CLIP patch-token features and metadata.</td>
+      </tr>
+      <tr>
+        <td>Masked DA3 output</td>
+        <td><code>{split}/person_masked_da3_features/{scene}/person_{id}/{video}.pt</code></td>
+        <td>Stores mask-pooled DA3 feature-map vectors and metadata.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Shared Procedure</h2>
+  <svg viewBox="0 0 1080 360" role="img" aria-label="Mask-pooled CLIP and DA3 feature extraction pipeline">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M0,0 L10,4 L0,8 Z" fill="#5d6872"></path>
+      </marker>
+    </defs>
+
+    <rect x="35" y="42" width="190" height="76" rx="8" fill="#eef6ff" stroke="#2563eb"></rect>
+    <text x="130" y="73" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Person Mapping</text>
+    <text x="130" y="96" text-anchor="middle" font-size="12" fill="#5d6872">person id to segments</text>
+
+    <rect x="35" y="142" width="190" height="76" rx="8" fill="#effaf1" stroke="#17803d"></rect>
+    <text x="130" y="173" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Refined Masks</text>
+    <text x="130" y="196" text-anchor="middle" font-size="12" fill="#5d6872">frame x segment masks</text>
+
+    <rect x="35" y="242" width="190" height="76" rx="8" fill="#f8fafc" stroke="#9aa6b2"></rect>
+    <text x="130" y="273" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">RGB Frames</text>
+    <text x="130" y="296" text-anchor="middle" font-size="12" fill="#5d6872">full frame pixels</text>
+
+    <rect x="300" y="112" width="190" height="92" rx="8" fill="#fff8e6" stroke="#9a6700"></rect>
+    <text x="395" y="146" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Union Segment Masks</text>
+    <text x="395" y="170" text-anchor="middle" font-size="12" fill="#5d6872">one person mask per frame</text>
+
+    <rect x="300" y="244" width="190" height="76" rx="8" fill="#f8fafc" stroke="#9aa6b2"></rect>
+    <text x="395" y="275" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Full RGB Model Input</text>
+    <text x="395" y="298" text-anchor="middle" font-size="12" fill="#5d6872">not blacked out</text>
+
+    <rect x="565" y="42" width="210" height="82" rx="8" fill="#eef6ff" stroke="#2563eb"></rect>
+    <text x="670" y="75" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">CLIP Patch Tokens</text>
+    <text x="670" y="99" text-anchor="middle" font-size="12" fill="#5d6872">hidden state, CLS removed</text>
+
+    <rect x="565" y="142" width="210" height="82" rx="8" fill="#f7f0ff" stroke="#7c3aed"></rect>
+    <text x="670" y="175" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">DA3 Feature Map</text>
+    <text x="670" y="199" text-anchor="middle" font-size="12" fill="#5d6872">auxiliary feature layer</text>
+
+    <rect x="565" y="250" width="210" height="82" rx="8" fill="#effaf1" stroke="#17803d"></rect>
+    <text x="670" y="283" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Mask To Feature Grid</text>
+    <text x="670" y="307" text-anchor="middle" font-size="12" fill="#5d6872">nearest resize and alignment</text>
+
+    <rect x="850" y="112" width="195" height="92" rx="8" fill="#fff1ed" stroke="#c2410c"></rect>
+    <text x="947" y="146" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Weighted Mean</text>
+    <text x="947" y="170" text-anchor="middle" font-size="12" fill="#5d6872">one vector per frame</text>
+
+    <rect x="850" y="244" width="195" height="76" rx="8" fill="#ffffff" stroke="#9aa6b2"></rect>
+    <text x="947" y="275" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">Track .pt File</text>
+    <text x="947" y="298" text-anchor="middle" font-size="12" fill="#5d6872">features + metadata</text>
+
+    <line x1="225" y1="80" x2="300" y2="140" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="225" y1="180" x2="300" y2="158" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="225" y1="280" x2="300" y2="280" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="490" y1="282" x2="565" y2="95" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="490" y1="282" x2="565" y2="183" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="490" y1="158" x2="565" y2="291" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="775" y1="83" x2="850" y2="139" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="775" y1="183" x2="850" y2="158" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="775" y1="291" x2="850" y2="184" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="947" y1="204" x2="947" y2="244" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+  <div class="legend">
+    <span><span class="swatch" style="background:#eef6ff;border:1px solid #2563eb"></span>CLIP path</span>
+    <span><span class="swatch" style="background:#f7f0ff;border:1px solid #7c3aed"></span>DA3 path</span>
+    <span><span class="swatch" style="background:#effaf1;border:1px solid #17803d"></span>mask data</span>
+    <span><span class="swatch" style="background:#fff1ed;border:1px solid #c2410c"></span>pooled output</span>
+  </div>
+
+  <h2>Masking Example</h2>
+  <p>
+    The mask is not multiplied into the RGB image for these two extractors.
+    Instead, it is resized onto the model's spatial feature grid and used as a
+    pooling weight.
+  </p>
+  <svg viewBox="0 0 1080 380" role="img" aria-label="Example of mask alignment and feature pooling">
+    <defs>
+      <marker id="arrow2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M0,0 L10,4 L0,8 Z" fill="#5d6872"></path>
+      </marker>
+    </defs>
+
+    <rect x="30" y="35" width="230" height="240" rx="8" fill="#f8fafc" stroke="#cbd5e1"></rect>
+    <text x="145" y="65" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">1. RGB Frame + Mask</text>
+    <rect x="60" y="88" width="170" height="130" fill="#dbeafe" stroke="#9aa6b2"></rect>
+    <rect x="60" y="178" width="170" height="40" fill="#d1d5db" opacity="0.55"></rect>
+    <circle cx="127" cy="124" r="14" fill="#f8c7a0" stroke="#7c2d12"></circle>
+    <path d="M113 143 C91 163 91 203 132 208 C175 211 185 166 157 143 C146 134 125 134 113 143 Z" fill="#2563eb" opacity="0.45" stroke="#2563eb" stroke-width="3"></path>
+    <path d="M106 138 C79 165 82 221 134 226 C190 230 206 163 164 137 C148 126 123 127 106 138 Z" fill="#22c55e" opacity="0.28" stroke="#17803d" stroke-width="3"></path>
+    <text x="145" y="246" text-anchor="middle" font-size="12" fill="#5d6872">green region is M_t</text>
+
+    <rect x="305" y="35" width="230" height="240" rx="8" fill="#eef6ff" stroke="#8bb8f7"></rect>
+    <text x="420" y="65" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">2. CLIP Patch Grid</text>
+    <g transform="translate(345 88)">
+      <rect width="150" height="150" fill="#ffffff" stroke="#cbd5e1"></rect>
+      <g stroke="#cbd5e1" stroke-width="1">
+        <line x1="25" y1="0" x2="25" y2="150"></line>
+        <line x1="50" y1="0" x2="50" y2="150"></line>
+        <line x1="75" y1="0" x2="75" y2="150"></line>
+        <line x1="100" y1="0" x2="100" y2="150"></line>
+        <line x1="125" y1="0" x2="125" y2="150"></line>
+        <line x1="0" y1="25" x2="150" y2="25"></line>
+        <line x1="0" y1="50" x2="150" y2="50"></line>
+        <line x1="0" y1="75" x2="150" y2="75"></line>
+        <line x1="0" y1="100" x2="150" y2="100"></line>
+        <line x1="0" y1="125" x2="150" y2="125"></line>
+      </g>
+      <rect x="50" y="50" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="75" y="50" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="50" y="75" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="75" y="75" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="100" y="75" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="75" y="100" width="25" height="25" fill="#22c55e" opacity="0.55"></rect>
+    </g>
+    <text x="420" y="246" text-anchor="middle" font-size="12" fill="#5d6872">mask resized to G x G patches</text>
+
+    <rect x="580" y="35" width="230" height="240" rx="8" fill="#f7f0ff" stroke="#bd9beb"></rect>
+    <text x="695" y="65" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">3. DA3 Feature Grid</text>
+    <g transform="translate(620 88)">
+      <rect width="150" height="150" fill="#ffffff" stroke="#cbd5e1"></rect>
+      <g stroke="#cbd5e1" stroke-width="1">
+        <line x1="30" y1="0" x2="30" y2="150"></line>
+        <line x1="60" y1="0" x2="60" y2="150"></line>
+        <line x1="90" y1="0" x2="90" y2="150"></line>
+        <line x1="120" y1="0" x2="120" y2="150"></line>
+        <line x1="0" y1="30" x2="150" y2="30"></line>
+        <line x1="0" y1="60" x2="150" y2="60"></line>
+        <line x1="0" y1="90" x2="150" y2="90"></line>
+        <line x1="0" y1="120" x2="150" y2="120"></line>
+      </g>
+      <rect x="60" y="60" width="30" height="30" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="90" y="60" width="30" height="30" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="60" y="90" width="30" height="30" fill="#22c55e" opacity="0.55"></rect>
+      <rect x="90" y="90" width="30" height="30" fill="#22c55e" opacity="0.55"></rect>
+    </g>
+    <text x="695" y="246" text-anchor="middle" font-size="12" fill="#5d6872">mask follows DA3 resize geometry</text>
+
+    <rect x="855" y="35" width="195" height="240" rx="8" fill="#fff1ed" stroke="#f0a08a"></rect>
+    <text x="952" y="65" text-anchor="middle" font-size="15" font-weight="700" fill="#172026">4. Pooled Vector</text>
+    <g transform="translate(885 111)">
+      <rect x="0" y="0" width="135" height="24" fill="#dbeafe" stroke="#2563eb"></rect>
+      <rect x="0" y="34" width="135" height="24" fill="#dcfce7" stroke="#17803d"></rect>
+      <rect x="0" y="68" width="135" height="24" fill="#fef3c7" stroke="#9a6700"></rect>
+      <rect x="0" y="102" width="135" height="24" fill="#fee2e2" stroke="#c2410c"></rect>
+      <text x="68" y="17" text-anchor="middle" font-size="12" fill="#172026">f_t[0]</text>
+      <text x="68" y="51" text-anchor="middle" font-size="12" fill="#172026">f_t[1]</text>
+      <text x="68" y="85" text-anchor="middle" font-size="12" fill="#172026">...</text>
+      <text x="68" y="119" text-anchor="middle" font-size="12" fill="#172026">f_t[C-1]</text>
+    </g>
+    <text x="952" y="246" text-anchor="middle" font-size="12" fill="#5d6872">one normalized row per frame</text>
+
+    <line x1="260" y1="155" x2="305" y2="155" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow2)"></line>
+    <line x1="535" y1="155" x2="580" y2="155" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow2)"></line>
+    <line x1="810" y1="155" x2="855" y2="155" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow2)"></line>
+
+    <text x="540" y="325" text-anchor="middle" font-size="14" fill="#5d6872">
+      The RGB image stays unchanged; only the mask is resized and used as weights over spatial features.
+    </text>
+  </svg>
+
+  <h2>CLIP Mask-Pooled Patch Token Features</h2>
+  <p>
+    <code>extract_person_masked_clip.py</code> runs Hugging Face CLIP vision
+    on the full RGB frame with hidden states enabled. It selects the requested
+    hidden state, drops the first CLS token, infers the square patch grid, and
+    resizes the person mask to that grid with nearest-neighbor interpolation.
+  </p>
+  <pre>M_t(x, y) = OR_{s in S_p} M_{t,s}(x, y)
+
+H_t_l = CLIPVision_l(I_t)                  # shape: (1 + N, C)
+P_t = H_t_l[1:]                            # remove CLS, shape: (N, C)
+m_t = ResizeNearest(M_t, G, G).reshape(N)
+
+z_t_clip = sum_i m_t[i] * P_t[i] / max(sum_i m_t[i], eps)
+f_t_clip = z_t_clip / max(L2Norm(z_t_clip), eps_norm)</pre>
+  <p>
+    <code>N = G * G</code>. Empty or absent masks do not produce a pooled
+    vector; the saved frame row is a zero vector so frame alignment is
+    preserved. By default, pooled vectors are L2-normalized and saved as
+    <code>float32</code>.
+  </p>
+
+  <h2>DA3 Mask-Pooled Feature Map Features</h2>
+  <p>
+    <code>extract_person_masked_da3.py</code> imports Depth Anything 3 from
+    <code>_external/depth-anything-3/src</code> without editing the vendored
+    source. It uses DA3's input processor and backbone export path to obtain
+    an auxiliary feature map, then applies the same resize/crop geometry to
+    the mask before resizing it to the feature map grid.
+  </p>
+  <pre>M_t(x, y) = OR_{s in S_p} M_{t,s}(x, y)
+
+A_t_l = DA3AuxFeature_l(I_t)               # shape: (H_f, W_f, C)
+M_t_prime = DA3InputGeometry(M_t)          # resize/crop/patch alignment
+m_t = ResizeNearest(M_t_prime, H_f, W_f)
+
+z_t_da3 = sum_{u,v} m_t[u,v] * A_t_l[u,v] / max(sum_{u,v} m_t[u,v], eps)
+f_t_da3 = z_t_da3 / max(L2Norm(z_t_da3), eps_norm)</pre>
+  <p>
+    The current default DA3 configuration is
+    <code>model_id=depth-anything/DA3METRIC-LARGE</code>, <code>layer=23</code>,
+    <code>process_res=504</code>, <code>process_res_method=upper_bound_resize</code>,
+    and <code>patch_size=14</code>. For the processed EgoCom frames this
+    commonly yields a <code>27 x 36</code> feature grid with feature dimension
+    <code>1024</code>.
+  </p>
+
+  <h2>Implementation Comparison</h2>
+  <table>
+    <thead>
+      <tr><th>Step</th><th>Masked CLIP</th><th>Masked DA3</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Model input</td>
+        <td>Full RGB frame through CLIP processor.</td>
+        <td>Full RGB frame through DA3 input processor.</td>
+      </tr>
+      <tr>
+        <td>Spatial features</td>
+        <td>Selected vision hidden state patch tokens after removing CLS.</td>
+        <td>Selected DA3 auxiliary feature map from the backbone export path.</td>
+      </tr>
+      <tr>
+        <td>Mask alignment</td>
+        <td>Nearest resize directly to the square CLIP patch grid.</td>
+        <td>Nearest resize through DA3 input geometry, then to the feature grid.</td>
+      </tr>
+      <tr>
+        <td>Pooling</td>
+        <td>Weighted average over patch tokens covered by the mask.</td>
+        <td>Weighted average over feature-map cells covered by the mask.</td>
+      </tr>
+      <tr>
+        <td>Missing mask behavior</td>
+        <td>Save a zero vector for that frame row.</td>
+        <td>Save a zero vector for that frame row.</td>
+      </tr>
+      <tr>
+        <td>Output root</td>
+        <td><code>{split}/person_masked_clip_features</code></td>
+        <td><code>{split}/person_masked_da3_features</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Saved Payload Fields</h2>
+  <div class="grid">
+    <section class="panel">
+      <h3>Shared Fields</h3>
+      <p class="small">
+        Both extractors save <code>features</code>, <code>frame_indices</code>,
+        <code>frame_stems</code>, <code>segment_ids</code>,
+        <code>has_masks</code>, <code>frame_statuses</code>,
+        <code>mask_pixel_counts</code>, <code>mask_grid_sums</code>,
+        source paths, split, scene key, video name, camera person, person id,
+        model id, layer, normalization flag, pooling label, and feature dim.
+      </p>
+    </section>
+    <section class="panel">
+      <h3>CLIP Specific</h3>
+      <p class="small">
+        The CLIP payload also stores <code>selected_hidden_state_index</code>,
+        <code>patches_per_side</code>, and <code>num_patch_tokens</code>.
+      </p>
+      <p><code>pooling == "mask_weighted_average_resized_to_clip_patch_grid"</code></p>
+    </section>
+    <section class="panel">
+      <h3>DA3 Specific</h3>
+      <p class="small">
+        The DA3 payload also stores per-frame <code>feature_grid_shapes</code>,
+        <code>process_res</code>, and <code>process_res_method</code>.
+      </p>
+      <p><code>pooling == "mask_weighted_average_resized_to_da3_feature_grid"</code></p>
+    </section>
+  </div>
+
+  <h2>Commands</h2>
+  <pre>python /home/prj/egocom_preprocess/extract_person_masked_clip.py --split val
+
+python /home/prj/egocom_preprocess/extract_person_masked_da3.py \
+  --split val \
+  --batch_size 1 \
+  --expected_dim 1024
+
+python /home/prj/egocom_preprocess/extract_person_masked_da3.py \
+  --split all_existing \
+  --device cuda:0 \
+  --batch_size 1 \
+  --expected_dim 1024</pre>
+
+  <div class="note">
+    Completed DA3 extraction status for the full existing split set:
+    <code>4208</code> output <code>.pt</code> files,
+    <code>processed=4187</code>, <code>skipped=21</code>, and
+    <code>failed=0</code>.
+  </div>
+</main>
+</body>
+</html>

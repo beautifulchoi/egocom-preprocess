@@ -5,6 +5,9 @@ Build windowed EgoCom multimodal pair manifests from 1-minute chunk outputs.
 Inputs:
   {data_root}/{chunk_root}/{split}/person_depth_lift/{scene}/person_{id}/*.npz
   {data_root}/{chunk_root}/{split}/person_visual_clip_features/{scene}/person_{id}/*.pt
+  {data_root}/{chunk_root}/{split}/person_pe_features/{scene}/person_{id}/*.pt
+  {data_root}/{chunk_root}/{split}/person_masked_clip_features/{scene}/person_{id}/*.pt
+  {data_root}/{chunk_root}/{split}/person_masked_da3_features/{scene}/person_{id}/*.pt
   {data_root}/{chunk_root}/{split}/person_spatial_t5_features/{scene}/person_{id}/*.pt
   {data_root}/original/{split}/audio/*.wav
   {data_root}/original/{split}/video/*.MP4
@@ -14,6 +17,9 @@ Outputs:
   {data_root}/{output_tag}/{split}/video
   {data_root}/{output_tag}/{split}/depth_xy_ray
   {data_root}/{output_tag}/{split}/clip_features
+  {data_root}/{output_tag}/{split}/pe_features
+  {data_root}/{output_tag}/{split}/masked_clip_features
+  {data_root}/{output_tag}/{split}/masked_da3_features
   {data_root}/{output_tag}/{split}/t5_text_features
   {data_root}/{output_tag}/{split}/manifest/manifest_mm.jsonl
 """
@@ -58,6 +64,9 @@ class ChunkInterval:
 class SplitIndex:
     depth: dict[tuple[str, int, str], list[ChunkPath]]
     clip: dict[tuple[str, int, str], list[ChunkPath]]
+    pe: dict[tuple[str, int, str], list[ChunkPath]]
+    masked_clip: dict[tuple[str, int, str], list[ChunkPath]]
+    masked_da3: dict[tuple[str, int, str], list[ChunkPath]]
     text: dict[tuple[str, int, str], list[ChunkPath]]
     camera_to_base: dict[str, dict[int, str]]
     scenes: list[str]
@@ -94,6 +103,46 @@ class ClipStream:
     source_chunk_index: np.ndarray
     feature_dim: int
     model_id: str
+
+
+@dataclass
+class PEStream:
+    num_frames: int
+    chunk_intervals: list[ChunkInterval]
+    features: torch.Tensor
+    valid_mask: torch.Tensor
+    frame_indices: np.ndarray
+    frame_stems: np.ndarray
+    frame_statuses: np.ndarray
+    mask_pixel_counts: np.ndarray
+    mask_grid_sums: np.ndarray
+    source_chunk_index: np.ndarray
+    feature_dim: int
+    pe_type: str
+    patches_per_side: int
+    hidden_size: int
+    pe_scale: float
+
+
+@dataclass
+class MaskPooledFeatureStream:
+    num_frames: int
+    chunk_intervals: list[ChunkInterval]
+    features: torch.Tensor
+    valid_mask: torch.Tensor
+    has_masks: torch.Tensor
+    frame_indices: np.ndarray
+    frame_stems: np.ndarray
+    frame_statuses: np.ndarray
+    mask_pixel_counts: np.ndarray
+    mask_grid_sums: np.ndarray
+    source_chunk_index: np.ndarray
+    feature_grid_shapes: np.ndarray
+    feature_dim: int
+    model_id: str
+    layer: int | None
+    pooling: str
+    extra_metadata: dict[str, Any]
 
 
 @dataclass
@@ -361,13 +410,20 @@ def discover_split_index(
 ) -> SplitIndex | None:
     depth_root = split_root / "person_depth_lift"
     clip_root = split_root / "person_visual_clip_features"
+    pe_root = split_root / "person_pe_features"
+    masked_clip_root = split_root / "person_masked_clip_features"
+    masked_da3_root = split_root / "person_masked_da3_features"
     text_root = split_root / "person_spatial_t5_features"
-    if not depth_root.is_dir() or not clip_root.is_dir() or not text_root.is_dir():
+    required_roots = (depth_root, clip_root, pe_root, masked_clip_root, masked_da3_root, text_root)
+    if not all(root.is_dir() for root in required_roots):
         return None
     conflicted = conflicted or {}
 
     depth: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     clip: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
+    pe: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
+    masked_clip: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
+    masked_da3: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     text: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     camera_to_base: dict[str, dict[int, str]] = defaultdict(dict)
 
@@ -412,6 +468,40 @@ def discover_split_index(
             clip[(scene, target_person, base_video)].append(ChunkPath(chunk_index, pt_path))
             add_camera(scene, base_video)
 
+    for person_dir in sorted(pe_root.glob("*/person_*")):
+        if not person_dir.is_dir():
+            continue
+        scene = person_dir.parent.name
+        target_person = int(person_dir.name.split("_", 1)[1])
+        for pt_path in sorted(person_dir.glob("*.pt")):
+            parsed = parse_chunk_stem(pt_path.stem)
+            if parsed is None:
+                continue
+            base_video, chunk_index = parsed
+            if is_conflicted_chunk(conflicted, scene, chunk_index):
+                continue
+            pe[(scene, target_person, base_video)].append(ChunkPath(chunk_index, pt_path))
+            add_camera(scene, base_video)
+
+    def add_feature_root(root: Path, target: dict[tuple[str, int, str], list[ChunkPath]]) -> None:
+        for person_dir in sorted(root.glob("*/person_*")):
+            if not person_dir.is_dir():
+                continue
+            scene = person_dir.parent.name
+            target_person = int(person_dir.name.split("_", 1)[1])
+            for pt_path in sorted(person_dir.glob("*.pt")):
+                parsed = parse_chunk_stem(pt_path.stem)
+                if parsed is None:
+                    continue
+                base_video, chunk_index = parsed
+                if is_conflicted_chunk(conflicted, scene, chunk_index):
+                    continue
+                target[(scene, target_person, base_video)].append(ChunkPath(chunk_index, pt_path))
+                add_camera(scene, base_video)
+
+    add_feature_root(masked_clip_root, masked_clip)
+    add_feature_root(masked_da3_root, masked_da3)
+
     for person_dir in sorted(text_root.glob("*/person_*")):
         if not person_dir.is_dir():
             continue
@@ -431,17 +521,29 @@ def discover_split_index(
         set(camera_to_base)
         | {key[0] for key in depth}
         | {key[0] for key in clip}
+        | {key[0] for key in pe}
+        | {key[0] for key in masked_clip}
+        | {key[0] for key in masked_da3}
         | {key[0] for key in text}
     )
     for paths in depth.values():
         paths.sort(key=lambda item: item.chunk_index)
     for paths in clip.values():
         paths.sort(key=lambda item: item.chunk_index)
+    for paths in pe.values():
+        paths.sort(key=lambda item: item.chunk_index)
+    for paths in masked_clip.values():
+        paths.sort(key=lambda item: item.chunk_index)
+    for paths in masked_da3.values():
+        paths.sort(key=lambda item: item.chunk_index)
     for paths in text.values():
         paths.sort(key=lambda item: item.chunk_index)
     return SplitIndex(
         depth=dict(depth),
         clip=dict(clip),
+        pe=dict(pe),
+        masked_clip=dict(masked_clip),
+        masked_da3=dict(masked_da3),
         text=dict(text),
         camera_to_base=dict(camera_to_base),
         scenes=scenes,
@@ -705,6 +807,196 @@ def merge_clip(
         model_id=model_id,
     )
 
+
+def merge_pe(
+    chunks: list[ChunkPath],
+    fps: float,
+    chunk_sec: float,
+    base_chunk_intervals: list[ChunkInterval] | None = None,
+) -> PEStream:
+    loaded: list[tuple[ChunkPath, dict[str, Any], int]] = []
+    chunk_lengths: list[tuple[ChunkPath, int]] = []
+    feature_dim = 0
+    pe_type = ""
+    patches_per_side = 0
+    hidden_size = 0
+    pe_scale = 1.0
+    for chunk in chunks:
+        data = load_torch(chunk.path)
+        features = data["features"]
+        length = int(features.shape[0])
+        feature_dim = int(data.get("feature_dim", features.shape[1]))
+        pe_type = str(data.get("pe_type", pe_type))
+        patches_per_side = int(data.get("patches_per_side", patches_per_side))
+        hidden_size = int(data.get("hidden_size", data.get("feature_dim", hidden_size)))
+        pe_scale = float(data.get("pe_scale", pe_scale))
+        local_indices = data.get("frame_indices", list(range(length)))
+        if local_indices:
+            length_extent = max(int(idx) for idx in local_indices) + 1
+        else:
+            length_extent = length
+        loaded.append((chunk, data, length_extent))
+        chunk_lengths.append((chunk, length_extent))
+
+    chunk_intervals = loaded_chunk_intervals(chunk_lengths, chunk_sec, fps, base_chunk_intervals)
+    interval_by_chunk = {interval.chunk_index: interval for interval in chunk_intervals}
+    max_end = max((interval.end_frame for interval in chunk_intervals), default=0)
+
+    features_all = torch.zeros((max_end, feature_dim), dtype=torch.float32)
+    valid_mask = torch.zeros((max_end,), dtype=torch.bool)
+    frame_indices = np.arange(max_end, dtype=np.int32)
+    frame_stems = np.full((max_end,), "", dtype=object)
+    frame_statuses = np.full((max_end,), "missing_chunk", dtype=object)
+    mask_pixel_counts = np.zeros((max_end,), dtype=np.int32)
+    mask_grid_sums = np.zeros((max_end,), dtype=np.float32)
+    source_chunk_index = np.zeros((max_end,), dtype=np.int32)
+
+    for chunk, data, _length_extent in loaded:
+        start = interval_by_chunk[chunk.chunk_index].start_frame
+        features = data["features"].detach().cpu().float()
+        local_indices = [int(idx) for idx in data.get("frame_indices", range(features.shape[0]))]
+        stems = list(data.get("frame_stems", [""] * features.shape[0]))
+        statuses = list(data.get("frame_statuses", ["unknown"] * features.shape[0]))
+        pixel_counts = list(data.get("mask_pixel_counts", [0] * features.shape[0]))
+        grid_sums = list(data.get("mask_grid_sums", [0.0] * features.shape[0]))
+        for row_idx, local_idx in enumerate(local_indices):
+            global_idx = start + local_idx
+            if global_idx >= max_end:
+                continue
+            features_all[global_idx] = features[row_idx]
+            valid_mask[global_idx] = True
+            frame_stems[global_idx] = stems[row_idx] if row_idx < len(stems) else ""
+            frame_statuses[global_idx] = statuses[row_idx] if row_idx < len(statuses) else "unknown"
+            mask_pixel_counts[global_idx] = int(pixel_counts[row_idx]) if row_idx < len(pixel_counts) else 0
+            mask_grid_sums[global_idx] = float(grid_sums[row_idx]) if row_idx < len(grid_sums) else 0.0
+            source_chunk_index[global_idx] = chunk.chunk_index
+
+    return PEStream(
+        num_frames=max_end,
+        chunk_intervals=chunk_intervals,
+        features=features_all,
+        valid_mask=valid_mask,
+        frame_indices=frame_indices,
+        frame_stems=frame_stems,
+        frame_statuses=frame_statuses,
+        mask_pixel_counts=mask_pixel_counts,
+        mask_grid_sums=mask_grid_sums,
+        source_chunk_index=source_chunk_index,
+        feature_dim=feature_dim,
+        pe_type=pe_type,
+        patches_per_side=patches_per_side,
+        hidden_size=hidden_size,
+        pe_scale=pe_scale,
+    )
+
+
+
+def merge_mask_pooled_feature(
+    chunks: list[ChunkPath],
+    fps: float,
+    chunk_sec: float,
+    base_chunk_intervals: list[ChunkInterval] | None = None,
+) -> MaskPooledFeatureStream:
+    loaded: list[tuple[ChunkPath, dict[str, Any], int]] = []
+    chunk_lengths: list[tuple[ChunkPath, int]] = []
+    feature_dim = 0
+    model_id = ""
+    layer: int | None = None
+    pooling = ""
+    extra_metadata: dict[str, Any] = {}
+    extra_keys = (
+        "image_mode",
+        "normalize_features",
+        "selected_hidden_state_index",
+        "patches_per_side",
+        "num_patch_tokens",
+        "process_res",
+        "process_res_method",
+    )
+    for chunk in chunks:
+        data = load_torch(chunk.path)
+        features = data["features"]
+        length = int(features.shape[0])
+        feature_dim = int(data.get("feature_dim", features.shape[1]))
+        model_id = str(data.get("model_id", model_id))
+        if "layer" in data:
+            layer = int(data["layer"])
+        pooling = str(data.get("pooling", pooling))
+        for key in extra_keys:
+            if key in data:
+                value = data[key]
+                if isinstance(value, np.generic):
+                    value = value.item()
+                extra_metadata[key] = value
+        local_indices = data.get("frame_indices", list(range(length)))
+        if local_indices:
+            length_extent = max(int(idx) for idx in local_indices) + 1
+        else:
+            length_extent = length
+        loaded.append((chunk, data, length_extent))
+        chunk_lengths.append((chunk, length_extent))
+
+    chunk_intervals = loaded_chunk_intervals(chunk_lengths, chunk_sec, fps, base_chunk_intervals)
+    interval_by_chunk = {interval.chunk_index: interval for interval in chunk_intervals}
+    max_end = max((interval.end_frame for interval in chunk_intervals), default=0)
+
+    features_all = torch.zeros((max_end, feature_dim), dtype=torch.float32)
+    valid_mask = torch.zeros((max_end,), dtype=torch.bool)
+    has_masks = torch.zeros((max_end,), dtype=torch.bool)
+    frame_indices = np.arange(max_end, dtype=np.int32)
+    frame_stems = np.full((max_end,), "", dtype=object)
+    frame_statuses = np.full((max_end,), "missing_chunk", dtype=object)
+    mask_pixel_counts = np.zeros((max_end,), dtype=np.int32)
+    mask_grid_sums = np.zeros((max_end,), dtype=np.float32)
+    source_chunk_index = np.zeros((max_end,), dtype=np.int32)
+    feature_grid_shapes = np.full((max_end,), None, dtype=object)
+
+    for chunk, data, _length_extent in loaded:
+        start = interval_by_chunk[chunk.chunk_index].start_frame
+        features = data["features"].detach().cpu().float()
+        local_indices = [int(idx) for idx in data.get("frame_indices", range(features.shape[0]))]
+        stems = list(data.get("frame_stems", [""] * features.shape[0]))
+        statuses = list(data.get("frame_statuses", ["unknown"] * features.shape[0]))
+        pixel_counts = list(data.get("mask_pixel_counts", [0] * features.shape[0]))
+        grid_sums = list(data.get("mask_grid_sums", [0.0] * features.shape[0]))
+        mask_flags = list(data.get("has_masks", [status == "masked" for status in statuses]))
+        grid_shapes = list(data.get("feature_grid_shapes", [None] * features.shape[0]))
+        for row_idx, local_idx in enumerate(local_indices):
+            global_idx = start + local_idx
+            if global_idx >= max_end:
+                continue
+            features_all[global_idx] = features[row_idx]
+            valid_mask[global_idx] = True
+            has_masks[global_idx] = bool(mask_flags[row_idx]) if row_idx < len(mask_flags) else False
+            frame_stems[global_idx] = stems[row_idx] if row_idx < len(stems) else ""
+            frame_statuses[global_idx] = statuses[row_idx] if row_idx < len(statuses) else "unknown"
+            mask_pixel_counts[global_idx] = int(pixel_counts[row_idx]) if row_idx < len(pixel_counts) else 0
+            mask_grid_sums[global_idx] = float(grid_sums[row_idx]) if row_idx < len(grid_sums) else 0.0
+            if row_idx < len(grid_shapes):
+                shape = grid_shapes[row_idx]
+                if shape is not None:
+                    feature_grid_shapes[global_idx] = [int(shape[0]), int(shape[1])]
+            source_chunk_index[global_idx] = chunk.chunk_index
+
+    return MaskPooledFeatureStream(
+        num_frames=max_end,
+        chunk_intervals=chunk_intervals,
+        features=features_all,
+        valid_mask=valid_mask,
+        has_masks=has_masks,
+        frame_indices=frame_indices,
+        frame_stems=frame_stems,
+        frame_statuses=frame_statuses,
+        mask_pixel_counts=mask_pixel_counts,
+        mask_grid_sums=mask_grid_sums,
+        source_chunk_index=source_chunk_index,
+        feature_grid_shapes=feature_grid_shapes,
+        feature_dim=feature_dim,
+        model_id=model_id,
+        layer=layer,
+        pooling=pooling,
+        extra_metadata=extra_metadata,
+    )
 
 def merge_text(
     chunks: list[ChunkPath],
@@ -1031,6 +1323,127 @@ def save_clip_window(
     return num_valid, num_valid / float(window_len)
 
 
+def save_pe_window(
+    path: Path,
+    stream: PEStream,
+    start_idx: int,
+    end_idx: int,
+    metadata: dict[str, Any],
+    overwrite: bool,
+) -> tuple[int, float]:
+    window_len = end_idx - start_idx
+    copy_end = min(end_idx, stream.num_frames)
+    copy_len = max(0, copy_end - start_idx)
+    features = torch.zeros((window_len, stream.feature_dim), dtype=torch.float32)
+    valid = torch.zeros((window_len,), dtype=torch.bool)
+    frame_indices = np.arange(start_idx, end_idx, dtype=np.int32)
+    frame_stems = np.full((window_len,), "", dtype=object)
+    frame_statuses = np.full((window_len,), "padded_after_end", dtype=object)
+    mask_pixel_counts = np.zeros((window_len,), dtype=np.int32)
+    mask_grid_sums = np.zeros((window_len,), dtype=np.float32)
+    source_chunk_index = np.zeros((window_len,), dtype=np.int32)
+    if copy_len > 0:
+        dst = slice(0, copy_len)
+        src = slice(start_idx, copy_end)
+        features[dst] = stream.features[src].clone()
+        valid[dst] = stream.valid_mask[src].clone()
+        frame_stems[dst] = stream.frame_stems[src]
+        frame_statuses[dst] = stream.frame_statuses[src]
+        mask_pixel_counts[dst] = stream.mask_pixel_counts[src].astype(np.int32)
+        mask_grid_sums[dst] = stream.mask_grid_sums[src].astype(np.float32)
+        source_chunk_index[dst] = stream.source_chunk_index[src].astype(np.int32)
+    num_valid = int(valid.sum().item())
+    if path.exists() and not overwrite:
+        return num_valid, num_valid / float(window_len)
+    ensure_dir(path.parent)
+    payload = {
+        **metadata,
+        "features": features,
+        "feature_valid_mask": valid.clone(),
+        "frame_indices": frame_indices.tolist(),
+        "frame_stems": frame_stems.tolist(),
+        "frame_statuses": frame_statuses.tolist(),
+        "mask_pixel_counts": mask_pixel_counts.astype(int).tolist(),
+        "mask_grid_sums": mask_grid_sums.astype(float).tolist(),
+        "source_chunk_index": source_chunk_index.astype(int).tolist(),
+        "num_valid_frames": num_valid,
+        "valid_ratio": num_valid / float(window_len),
+        "feature_dim": stream.feature_dim,
+        "pe_type": stream.pe_type,
+        "patches_per_side": stream.patches_per_side,
+        "hidden_size": stream.hidden_size,
+        "pe_scale": stream.pe_scale,
+    }
+    torch.save(payload, path)
+    return num_valid, num_valid / float(window_len)
+
+
+def save_mask_pooled_feature_window(
+    path: Path,
+    stream: MaskPooledFeatureStream,
+    start_idx: int,
+    end_idx: int,
+    metadata: dict[str, Any],
+    overwrite: bool,
+) -> tuple[int, float]:
+    window_len = end_idx - start_idx
+    copy_end = min(end_idx, stream.num_frames)
+    copy_len = max(0, copy_end - start_idx)
+    features = torch.zeros((window_len, stream.feature_dim), dtype=torch.float32)
+    valid = torch.zeros((window_len,), dtype=torch.bool)
+    has_masks = torch.zeros((window_len,), dtype=torch.bool)
+    frame_indices = np.arange(start_idx, end_idx, dtype=np.int32)
+    frame_stems = np.full((window_len,), "", dtype=object)
+    frame_statuses = np.full((window_len,), "padded_after_end", dtype=object)
+    mask_pixel_counts = np.zeros((window_len,), dtype=np.int32)
+    mask_grid_sums = np.zeros((window_len,), dtype=np.float32)
+    source_chunk_index = np.zeros((window_len,), dtype=np.int32)
+    feature_grid_shapes = np.full((window_len,), None, dtype=object)
+    if copy_len > 0:
+        dst = slice(0, copy_len)
+        src = slice(start_idx, copy_end)
+        features[dst] = stream.features[src].clone()
+        valid[dst] = stream.valid_mask[src].clone()
+        has_masks[dst] = stream.has_masks[src].clone()
+        frame_stems[dst] = stream.frame_stems[src]
+        frame_statuses[dst] = stream.frame_statuses[src]
+        mask_pixel_counts[dst] = stream.mask_pixel_counts[src].astype(np.int32)
+        mask_grid_sums[dst] = stream.mask_grid_sums[src].astype(np.float32)
+        source_chunk_index[dst] = stream.source_chunk_index[src].astype(np.int32)
+        feature_grid_shapes[dst] = stream.feature_grid_shapes[src]
+    num_valid = int(valid.sum().item())
+    if path.exists() and not overwrite:
+        return num_valid, num_valid / float(window_len)
+    ensure_dir(path.parent)
+    grid_shapes = [
+        [int(shape[0]), int(shape[1])] if shape is not None else None
+        for shape in feature_grid_shapes.tolist()
+    ]
+    payload = {
+        **metadata,
+        **stream.extra_metadata,
+        "features": features,
+        "feature_valid_mask": valid.clone(),
+        "has_masks": has_masks.clone(),
+        "frame_indices": frame_indices.tolist(),
+        "frame_stems": frame_stems.tolist(),
+        "frame_statuses": frame_statuses.tolist(),
+        "mask_pixel_counts": mask_pixel_counts.astype(int).tolist(),
+        "mask_grid_sums": mask_grid_sums.astype(float).tolist(),
+        "feature_grid_shapes": grid_shapes,
+        "source_chunk_index": source_chunk_index.astype(int).tolist(),
+        "num_valid_frames": num_valid,
+        "valid_ratio": num_valid / float(window_len),
+        "num_masked_frames": int(has_masks.sum().item()),
+        "feature_dim": stream.feature_dim,
+        "model_id": stream.model_id,
+        "layer": stream.layer,
+        "pooling": stream.pooling,
+    }
+    torch.save(payload, path)
+    return num_valid, num_valid / float(window_len)
+
+
 def save_text_window(
     path: Path,
     stream: TextStream,
@@ -1092,6 +1505,52 @@ def save_text_window(
     return num_valid, num_valid / float(window_len), num_null
 
 
+STABLE_MANIFEST_KEY_FIELDS = (
+    "split",
+    "scene_name",
+    "src_video_name",
+    "tgt_video_name",
+    "tgt_person_id",
+    "clip_start_ms",
+    "clip_end_ms",
+)
+
+
+def stable_manifest_key(record: dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(record.get(field) for field in STABLE_MANIFEST_KEY_FIELDS)
+
+
+def assert_manifest_rows_unchanged(manifest_path: Path, records: list[dict[str, Any]]) -> dict[str, Any]:
+    if not manifest_path.exists():
+        return {"checked": False, "reason": "no_existing_manifest"}
+
+    existing_keys: list[tuple[Any, ...]] = []
+    with manifest_path.open("r") as handle:
+        for line_no, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            existing_keys.append(stable_manifest_key(json.loads(line)))
+
+    new_keys = [stable_manifest_key(record) for record in records]
+    if len(existing_keys) != len(new_keys):
+        raise RuntimeError(
+            f"Manifest row guard failed for {manifest_path}: "
+            f"existing rows={len(existing_keys)} new rows={len(new_keys)}"
+        )
+    for index, (old_key, new_key) in enumerate(zip(existing_keys, new_keys), start=1):
+        if old_key != new_key:
+            raise RuntimeError(
+                f"Manifest row guard failed for {manifest_path} at row {index}: "
+                f"existing key={old_key!r} new key={new_key!r}"
+            )
+    return {
+        "checked": True,
+        "stable_key_fields": list(STABLE_MANIFEST_KEY_FIELDS),
+        "row_count": len(new_keys),
+    }
+
+
 def handle_missing(policy: str, message: str) -> bool:
     if policy == "strict":
         raise FileNotFoundError(message)
@@ -1113,7 +1572,10 @@ def build_split(
     video_output_root = split_output / "video"
     geometry_output_root = split_output / "depth_xy_ray"
     clip_output_root = split_output / "clip_features"
+    pe_output_root = split_output / "pe_features"
     text_output_root = split_output / "t5_text_features"
+    masked_clip_output_root = split_output / "masked_clip_features"
+    masked_da3_output_root = split_output / "masked_da3_features"
     manifest_path = split_output / "manifest" / "manifest_mm.jsonl"
     summary_path = split_output / "manifest" / "build_summary_mm.json"
     original_audio_root = original_root / split / "audio"
@@ -1134,8 +1596,8 @@ def build_split(
 
     index = discover_split_index(split_root, split, conflicted)
     if index is None:
-        drop_counts["missing_depth_clip_or_text_root"] += 1
-        handle_missing(args.missing_policy, f"Missing depth, CLIP, or T5 text root for split {split}: {split_root}")
+        drop_counts["missing_depth_clip_pe_or_text_root"] += 1
+        handle_missing(args.missing_policy, f"Missing depth, CLIP, PE, or T5 text root for split {split}: {split_root}")
         summary = {
             "split": split,
             "skipped": True,
@@ -1147,6 +1609,7 @@ def build_split(
             "emitted_record_count": 0,
             "manifest_path": str(manifest_path),
         }
+        summary["manifest_row_guard"] = assert_manifest_rows_unchanged(manifest_path, [])
         write_json(summary_path, summary)
         write_jsonl(manifest_path, [])
         return summary
@@ -1163,7 +1626,7 @@ def build_split(
             if not intervals:
                 matching_indices = {
                     chunk.chunk_index
-                    for mapping in (index.depth, index.clip, index.text)
+                    for mapping in (index.depth, index.clip, index.pe, index.masked_clip, index.masked_da3, index.text)
                     for (item_scene, _person_id, item_base), chunks in mapping.items()
                     if item_scene == scene_name and item_base == base_video
                     for chunk in chunks
@@ -1265,6 +1728,21 @@ def build_split(
                     drop_counts["missing_target_clip"] += 1
                     if not handle_missing(args.missing_policy, f"Missing target CLIP chunks: {pair_key}"):
                         continue
+                if pair_key not in index.pe:
+                    scene_summary["drop_counts"]["missing_target_pe"] += 1
+                    drop_counts["missing_target_pe"] += 1
+                    if not handle_missing(args.missing_policy, f"Missing target PE chunks: {pair_key}"):
+                        continue
+                if pair_key not in index.masked_clip:
+                    scene_summary["drop_counts"]["missing_target_masked_clip"] += 1
+                    drop_counts["missing_target_masked_clip"] += 1
+                    if not handle_missing(args.missing_policy, f"Missing target masked CLIP chunks: {pair_key}"):
+                        continue
+                if pair_key not in index.masked_da3:
+                    scene_summary["drop_counts"]["missing_target_masked_da3"] += 1
+                    drop_counts["missing_target_masked_da3"] += 1
+                    if not handle_missing(args.missing_policy, f"Missing target masked DA3 chunks: {pair_key}"):
+                        continue
                 if pair_key not in index.text:
                     scene_summary["drop_counts"]["missing_target_t5_text"] += 1
                     drop_counts["missing_target_t5_text"] += 1
@@ -1274,12 +1752,16 @@ def build_split(
                 base_chunk_intervals = get_video_chunk_intervals(scene, src_base)
                 geometry = merge_geometry(index.depth[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
                 clip = merge_clip(index.clip[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
+                pe = merge_pe(index.pe[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
+                masked_clip = merge_mask_pooled_feature(index.masked_clip[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
+                masked_da3 = merge_mask_pooled_feature(index.masked_da3[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
                 text = merge_text(index.text[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
                 max_duration_sec = min(
                     get_audio_duration(src_audio_source),
                     get_audio_duration(tgt_audio_source),
                     geometry.num_frames / args.fps,
                     clip.num_frames / args.fps,
+                    pe.num_frames / args.fps,
                     text.num_frames / args.fps,
                 )
                 starts = window_starts(
@@ -1313,6 +1795,7 @@ def build_split(
                         and (
                             end_idx > geometry.num_frames
                             or end_idx > clip.num_frames
+                            or end_idx > pe.num_frames
                             or end_idx > text.num_frames
                         )
                     ):
@@ -1348,6 +1831,12 @@ def build_split(
                     if not any(status == "masked" for status in clip_statuses):
                         scene_summary["drop_counts"]["fully_absent_target_visual"] += 1
                         drop_counts["fully_absent_target_visual"] += 1
+                        continue
+
+                    pe_valid = int(pe.valid_mask[start_idx:end_idx].sum().item())
+                    if pe_valid == 0:
+                        scene_summary["drop_counts"]["no_valid_pe_in_window"] += 1
+                        drop_counts["no_valid_pe_in_window"] += 1
                         continue
 
                     text_valid = int(text.valid_mask[start_idx:end_idx].sum().item())
@@ -1435,8 +1924,17 @@ def build_split(
                     clip_path = (
                         clip_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
                     )
+                    pe_path = (
+                        pe_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
+                    )
                     text_path = (
                         text_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
+                    )
+                    masked_clip_path = (
+                        masked_clip_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
+                    )
+                    masked_da3_path = (
+                        masked_da3_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
                     )
                     metadata = {
                         "split": split,
@@ -1470,6 +1968,30 @@ def build_split(
                         end_idx,
                         metadata,
                         False,
+                    )
+                    pe_count, pe_ratio = save_pe_window(
+                        pe_path,
+                        pe,
+                        start_idx,
+                        end_idx,
+                        metadata,
+                        False,
+                    )
+                    masked_clip_count, masked_clip_ratio = save_mask_pooled_feature_window(
+                        masked_clip_path,
+                        masked_clip,
+                        start_idx,
+                        end_idx,
+                        metadata,
+                        args.overwrite,
+                    )
+                    masked_da3_count, masked_da3_ratio = save_mask_pooled_feature_window(
+                        masked_da3_path,
+                        masked_da3,
+                        start_idx,
+                        end_idx,
+                        metadata,
+                        args.overwrite,
                     )
                     text_count, text_ratio, text_null_count = save_text_window(
                         text_path,
@@ -1507,6 +2029,18 @@ def build_split(
                         "tgt_clip_feature_filename": clip_path.name,
                         "tgt_clip_num_valid_frames": clip_count,
                         "tgt_clip_valid_ratio": clip_ratio,
+                        "tgt_pe_feature_path": str(pe_path),
+                        "tgt_pe_feature_filename": pe_path.name,
+                        "tgt_pe_num_valid_frames": pe_count,
+                        "tgt_pe_valid_ratio": pe_ratio,
+                        "tgt_masked_clip_feature_path": str(masked_clip_path),
+                        "tgt_masked_clip_feature_filename": masked_clip_path.name,
+                        "tgt_masked_clip_num_valid_frames": masked_clip_count,
+                        "tgt_masked_clip_valid_ratio": masked_clip_ratio,
+                        "tgt_masked_da3_feature_path": str(masked_da3_path),
+                        "tgt_masked_da3_feature_filename": masked_da3_path.name,
+                        "tgt_masked_da3_num_valid_frames": masked_da3_count,
+                        "tgt_masked_da3_valid_ratio": masked_da3_ratio,
                         "tgt_t5_text_feature_path": str(text_path),
                         "tgt_t5_text_feature_filename": text_path.name,
                         "tgt_t5_text_num_valid_frames": text_count,
@@ -1518,6 +2052,12 @@ def build_split(
                         "tgt_geometry_aligned_end_ms": aligned_end_ms,
                         "tgt_clip_aligned_start_ms": aligned_start_ms,
                         "tgt_clip_aligned_end_ms": aligned_end_ms,
+                        "tgt_pe_aligned_start_ms": aligned_start_ms,
+                        "tgt_pe_aligned_end_ms": aligned_end_ms,
+                        "tgt_masked_clip_aligned_start_ms": aligned_start_ms,
+                        "tgt_masked_clip_aligned_end_ms": aligned_end_ms,
+                        "tgt_masked_da3_aligned_start_ms": aligned_start_ms,
+                        "tgt_masked_da3_aligned_end_ms": aligned_end_ms,
                         "tgt_t5_text_aligned_start_ms": aligned_start_ms,
                         "tgt_t5_text_aligned_end_ms": aligned_end_ms,
                         "window_frames": window_frames,
@@ -1571,6 +2111,7 @@ def build_split(
         "scene_summaries": scene_summaries,
         "manifest_path": str(manifest_path),
     }
+    summary["manifest_row_guard"] = assert_manifest_rows_unchanged(manifest_path, records)
     write_jsonl(manifest_path, records)
     write_json(summary_path, summary)
     return summary

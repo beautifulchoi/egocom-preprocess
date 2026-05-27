@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoCom Mask-Pooled Positional Encoding Features</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6872;
+      --line: #cfd8dc;
+      --blue: #2563eb;
+      --green: #17803d;
+      --gold: #9a6700;
+      --red: #c2410c;
+      --bg: #f7fafb;
+      --panel: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; margin-top: 32px; }
+    h3 { font-size: 17px; margin-top: 20px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      color: #10212b;
+    }
+    code {
+      background: #eef3f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      background: #eef3f6;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    th { background: #edf4f7; color: #24313a; }
+    tr:last-child td { border-bottom: 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .small { font-size: 13px; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: -1px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>EgoCom Mask-Pooled Positional Encoding Features</h1>
+  <p>
+    <code>extract_pe.py</code> adds a frame-aligned positional encoding feature
+    branch for mapped EgoCom person tracks. Instead of masking RGB pixels and
+    extracting one global visual feature, it builds a ViT-style 2D positional
+    table, resizes each target-person segmentation mask to the patch grid, and
+    averages positional vectors over the mask-covered patch area.
+  </p>
+
+  <h2>Pipeline</h2>
+  <svg viewBox="0 0 1080 330" role="img" aria-label="Mask-pooled positional encoding pipeline">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M0,0 L10,4 L0,8 Z" fill="#5d6872"></path>
+      </marker>
+    </defs>
+    <rect x="35" y="55" width="190" height="78" rx="8" fill="#eef6ff" stroke="#2563eb"></rect>
+    <text x="130" y="86" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">Mapping</text>
+    <text x="130" y="111" text-anchor="middle" font-size="13" fill="#5d6872">scene person to segments</text>
+
+    <rect x="35" y="190" width="190" height="78" rx="8" fill="#f5fbf6" stroke="#17803d"></rect>
+    <text x="130" y="221" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">Refined Masks</text>
+    <text x="130" y="246" text-anchor="middle" font-size="13" fill="#5d6872">frame-indexed booleans</text>
+
+    <rect x="295" y="55" width="190" height="78" rx="8" fill="#fff8e6" stroke="#9a6700"></rect>
+    <text x="390" y="86" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">PE Table</text>
+    <text x="390" y="111" text-anchor="middle" font-size="13" fill="#5d6872">sinusoidal or RoPE</text>
+
+    <rect x="295" y="190" width="190" height="78" rx="8" fill="#f5fbf6" stroke="#17803d"></rect>
+    <text x="390" y="221" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">Mask Resize</text>
+    <text x="390" y="246" text-anchor="middle" font-size="13" fill="#5d6872">image grid to patch grid</text>
+
+    <rect x="555" y="122" width="210" height="92" rx="8" fill="#eef6ff" stroke="#2563eb"></rect>
+    <text x="660" y="156" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">Masked Pooling</text>
+    <text x="660" y="181" text-anchor="middle" font-size="13" fill="#5d6872">weighted mean over patches</text>
+
+    <rect x="835" y="122" width="210" height="92" rx="8" fill="#fff1ed" stroke="#c2410c"></rect>
+    <text x="940" y="156" text-anchor="middle" font-size="16" font-weight="700" fill="#172026">PE Features</text>
+    <text x="940" y="181" text-anchor="middle" font-size="13" fill="#5d6872">one vector per frame</text>
+
+    <line x1="225" y1="94" x2="295" y2="94" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="225" y1="229" x2="295" y2="229" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="485" y1="94" x2="555" y2="145" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="485" y1="229" x2="555" y2="190" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+    <line x1="765" y1="168" x2="835" y2="168" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
+  </svg>
+  <div class="legend">
+    <span><span class="swatch" style="background:#eef6ff;border:1px solid #2563eb"></span>mapping and pooling</span>
+    <span><span class="swatch" style="background:#f5fbf6;border:1px solid #17803d"></span>mask data</span>
+    <span><span class="swatch" style="background:#fff8e6;border:1px solid #9a6700"></span>positional table</span>
+    <span><span class="swatch" style="background:#fff1ed;border:1px solid #c2410c"></span>saved output</span>
+  </div>
+
+  <h2>Inputs And Outputs</h2>
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Path</th><th>Use</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Person mapping</td>
+        <td><code>{split}/person_face_mapping/*/remap_all_chunks.json</code></td>
+        <td>Maps final scene person ids to one or more chunk-local refined-mask segment ids.</td>
+      </tr>
+      <tr>
+        <td>Refined masks</td>
+        <td><code>{split}/refined_mask/{video}/mask.pt</code></td>
+        <td>Frame-indexed dictionary of segment ids to 2D boolean masks.</td>
+      </tr>
+      <tr>
+        <td>Frame list</td>
+        <td><code>{split}/frame/{video}/*.jpg</code></td>
+        <td>Defines the frame order and sequence length; pixels are not read for PE extraction.</td>
+      </tr>
+      <tr>
+        <td>PE chunk output</td>
+        <td><code>{split}/person_pe_features/{scene}/person_{id}/{video}.pt</code></td>
+        <td>Stores one mask-pooled PE vector for every source frame.</td>
+      </tr>
+      <tr>
+        <td>Manifest sidecar</td>
+        <td><code>{output}/{split}/pe_features/{scene}/{src_video}/target_person_{id}/*.pt</code></td>
+        <td>Windowed PE tensor aligned with audio, geometry, CLIP, and T5 sidecars.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Encoding Modes</h2>
+  <div class="grid">
+    <section class="panel">
+      <h3>Sinusoidal</h3>
+      <p>
+        The sinusoidal path uses Hugging Face MAE's
+        <code>get_2d_sincos_pos_embed(hidden_size, patches_per_side)</code>,
+        multiplied by <code>pe_scale</code>. The resulting table is fixed and
+        has shape <code>(patches_per_side * patches_per_side, hidden_size)</code>.
+      </p>
+    </section>
+    <section class="panel">
+      <h3>RoPE</h3>
+      <p>
+        The RoPE path creates a standalone 2D rotary sin/cos coordinate table.
+        Half of the channels encode the y coordinate and half encode the x
+        coordinate. This produces the same output shape as sinusoidal PE, so
+        both modes are interchangeable downstream.
+      </p>
+    </section>
+  </div>
+  <p>
+    <code>hidden_size</code> must be divisible by 4 because each spatial axis
+    needs paired sine and cosine channels. The default feature shape is
+    <code>16 x 16</code> patches and <code>768</code> channels.
+  </p>
+
+  <h2>Mask Pooling</h2>
+  <p>
+    For each mapped person and frame, all assigned segment masks are unioned.
+    The union mask is resized from image resolution to the PE patch grid with
+    area interpolation, preserving fractional coverage per patch. Pooling is a
+    weighted average over the PE table:
+  </p>
+  <pre>features = pe_grid.reshape(H * W, C)
+mask = resized_mask.reshape(1, H * W)
+pooled = mask @ features / (mask.sum(-1, keepdim=True) + 1e-6)</pre>
+  <p>
+    If the mapped segment is absent or the resized mask is empty, the extractor
+    writes a zero vector and marks the frame status as
+    <code>absent_segment</code> or <code>empty_mask_after_resize</code>. This keeps
+    every output tensor aligned with the original chunk frame sequence.
+  </p>
+
+  <h2>Saved Payload</h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>features</code></td><td><code>float32</code> tensor of shape <code>(num_source_frames, hidden_size)</code>.</td></tr>
+      <tr><td><code>frame_indices</code>, <code>frame_stems</code></td><td>Source-frame alignment metadata.</td></tr>
+      <tr><td><code>segment_ids</code></td><td>Final mapped segment ids unioned for this person track.</td></tr>
+      <tr><td><code>has_masks</code>, <code>frame_statuses</code></td><td>Per-frame mask availability and status labels.</td></tr>
+      <tr><td><code>mask_pixel_counts</code></td><td>Original-resolution mask pixel counts.</td></tr>
+      <tr><td><code>mask_grid_sums</code></td><td>Fractional mask coverage after resizing to the patch grid.</td></tr>
+      <tr><td><code>pe_type</code>, <code>patches_per_side</code>, <code>hidden_size</code>, <code>pe_scale</code></td><td>Configuration needed to interpret the PE feature stream.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Manifest Integration</h2>
+  <p>
+    <code>build_egocom_window_manifest.py</code> now requires the PE branch next
+    to depth, CLIP, and T5. It discovers
+    <code>{split}/person_pe_features/{scene}/person_{id}/*.pt</code>, merges
+    chunks onto the same global 5 FPS timeline, writes windowed PE sidecars, and
+    adds <code>tgt_pe_feature_path</code>, <code>tgt_pe_num_valid_frames</code>, and
+    <code>tgt_pe_valid_ratio</code> to each manifest row.
+  </p>
+
+  <h2>Commands</h2>
+  <pre>python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type sinusoidal
+python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type rope
+python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits train,val --overwrite</pre>
+  <p class="small">
+    Use <code>--scene_key</code>, <code>--video</code>, or <code>--limit</code> for
+    smaller extraction runs. Use <code>--output_root</code> for smoke tests that
+    should not write into the dataset tree.
+  </p>
+</main>
+</body>
+</html>
