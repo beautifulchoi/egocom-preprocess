@@ -7,20 +7,20 @@ This document aggregates the repository README and the HTML stage descriptions i
 ```mermaid
 flowchart TD
     raw[Raw 1-minute EgoCom chunks\nvideo, frames, audio]
-    depth[DA3 depth and intrinsics\nextract_depth.py]
-    mask[SAM3 person masks\nextract_mask.py]
-    refined[Depth-refined masks\nfilter_mask.py]
-    face[Face / StyleID embeddings\nextract_person_embeding.py]
-    map[Selected-chunk person mapping\nmap_person_face_embedding.py]
-    reports[Mapping reports\nreport_person_face_mapping.py]
-    remap[All-chunk remapping\nremap_person_face_all_chunks.py]
-    merge_reports[Merged segment reports\nreport_merged_segments.py]
-    lift[Person depth lift\nextract_person_depth_lift.py]
-    clip[Masked person CLIP features\nextract_person_visual_clip.py]
-    pe[Mask-pooled positional encoding\nextract_pe.py]
-    text[InternVL2 spatial text\nextract_person_internvl2_text.py]
-    t5[T5 text features\nextract_person_t5_text_features.py]
-    manifest[Windowed multimodal manifest\nbuild_egocom_window_manifest.py]
+    depth[DA3 depth and intrinsics\nsrc/step_01_extract_depth.py]
+    mask[SAM3 person masks\nsrc/step_02_extract_mask.py]
+    refined[Depth-refined masks\nsrc/step_03_filter_mask.py]
+    face[Face / StyleID embeddings\nsrc/step_04_extract_person_embeding.py]
+    map[Selected-chunk person mapping\nsrc/step_05_map_person_face_embedding.py]
+    reports[Mapping reports\nsrc/step_06_report_person_face_mapping.py]
+    remap[All-chunk remapping\nsrc/step_07_remap_person_face_all_chunks.py]
+    merge_reports[Merged segment reports\nsrc/step_08_report_merged_segments.py]
+    lift[Person depth lift\nsrc/step_09_extract_person_depth_lift.py]
+    clip[Masked person CLIP features\nsrc/step_10_extract_person_visual_clip.py]
+    pe[Mask-pooled positional encoding\nsrc/step_13_extract_pe.py]
+    text[InternVL2 spatial text\nsrc/step_14_extract_person_internvl2_text.py]
+    t5[T5 text features\nsrc/step_15_extract_person_t5_text_features.py]
+    manifest[Windowed multimodal manifest\nsrc/step_16_build_egocom_window_manifest.py]
 
     raw --> depth
     raw --> mask
@@ -62,20 +62,20 @@ The key dependency chain is:
 | Order | Stage | Script | Main Inputs | Main Outputs |
 | --- | --- | --- | --- | --- |
 | 0 | Source chunks | Existing dataset layout | Videos, frames, audio | `/home/prj/data/egocom_holdout/1min/{split}` |
-| 1 | DA3 depth and intrinsics | `extract_depth.py` | Frame folders | `{split}/da3/monocular`, `{split}/da3/nested` |
-| 2 | SAM3 person masks | `extract_mask.py` | Videos or frame folders | `{split}/person_mask/{video}` |
-| 3 | Depth-refined masks | `filter_mask.py` | SAM masks, DA3 depth | `{split}/refined_mask/{video}/mask.pt` |
-| 4 | Face embeddings | `extract_person_embeding.py` | Refined masks, frames | `{split}/person_face_emb/{video}/embeding.pt` |
-| 5 | Selected-chunk mapping | `map_person_face_embedding.py` | Refined masks, face embeddings | `{split}/person_face_mapping/{scene}/mapping.json` |
-| 6 | Mapping reports | `report_person_face_mapping.py` | Mapping outputs | Split and dataset HTML/JSON reports |
-| 7 | All-chunk remapping | `remap_person_face_all_chunks.py` | Selected chunk prototypes, all chunk embeddings | `{split}/person_face_mapping/{scene}/remap_all_chunks.json` |
-| 8 | Merged segment reports | `report_merged_segments.py` | Remap outputs | `{split}/person_face_mapping/merged_segments_report.html` |
-| 9a | Person depth lift | `extract_person_depth_lift.py` | Remap chains, refined masks, face boxes, DA3 depth, intrinsics | `{split}/person_depth_lift/{scene}/person_{id}/{video}.npz` |
-| 9b | Masked person CLIP | `extract_person_visual_clip.py` | Remap chains, refined masks, frames | `{split}/person_visual_clip_features/{scene}/person_{id}/{video}.pt` |
-| 9c | Positional encoding features | `extract_pe.py` | Remap chains, refined masks, frames | `{split}/person_pe_features/{scene}/person_{id}/{video}.pt` |
-| 9d | Spatial text | `extract_person_internvl2_text.py` | Remap chains, refined masks, frames | `{split}/person_spatial_internvl2_text/{scene}/person_{id}/{video}.txt` |
-| 10d | T5 text features | `extract_person_t5_text_features.py` | InternVL2 text | `{split}/person_spatial_t5_features/{scene}/person_{id}/{video}.pt` |
-| 11 | Window manifest | `build_egocom_window_manifest.py` | Audio, depth lift, CLIP, PE, T5 features | Window sidecars and `manifest_mm.jsonl` |
+| 1 | DA3 depth and intrinsics | `src/step_01_extract_depth.py` | Frame folders | `{split}/da3/monocular`, `{split}/da3/nested` |
+| 2 | SAM3 person masks | `src/step_02_extract_mask.py` | Videos or frame folders | `{split}/person_mask/{video}` |
+| 3 | Depth-refined masks | `src/step_03_filter_mask.py` | SAM masks, DA3 depth | `{split}/refined_mask/{video}/mask.pt` |
+| 4 | Face embeddings | `src/step_04_extract_person_embeding.py` | Refined masks, frames | `{split}/person_face_emb/{video}/embeding.pt` |
+| 5 | Selected-chunk mapping | `src/step_05_map_person_face_embedding.py` | Refined masks, face embeddings | `{split}/person_face_mapping/{scene}/mapping.json` |
+| 6 | Mapping reports | `src/step_06_report_person_face_mapping.py` | Mapping outputs | Split and dataset HTML/JSON reports |
+| 7 | All-chunk remapping | `src/step_07_remap_person_face_all_chunks.py` | Selected chunk prototypes, all chunk embeddings | `{split}/person_face_mapping/{scene}/remap_all_chunks.json` |
+| 8 | Merged segment reports | `src/step_08_report_merged_segments.py` | Remap outputs | `{split}/person_face_mapping/merged_segments_report.html` |
+| 9a | Person depth lift | `src/step_09_extract_person_depth_lift.py` | Remap chains, refined masks, face boxes, DA3 depth, intrinsics | `{split}/person_depth_lift/{scene}/person_{id}/{video}.npz` |
+| 9b | Masked person CLIP | `src/step_10_extract_person_visual_clip.py` | Remap chains, refined masks, frames | `{split}/person_visual_clip_features/{scene}/person_{id}/{video}.pt` |
+| 9c | Positional encoding features | `src/step_13_extract_pe.py` | Remap chains, refined masks, frames | `{split}/person_pe_features/{scene}/person_{id}/{video}.pt` |
+| 9d | Spatial text | `src/step_14_extract_person_internvl2_text.py` | Remap chains, refined masks, frames | `{split}/person_spatial_internvl2_text/{scene}/person_{id}/{video}.txt` |
+| 10d | T5 text features | `src/step_15_extract_person_t5_text_features.py` | InternVL2 text | `{split}/person_spatial_t5_features/{scene}/person_{id}/{video}.pt` |
+| 11 | Window manifest | `src/step_16_build_egocom_window_manifest.py` | Audio, depth lift, CLIP, PE, T5 features | Window sidecars and `manifest_mm.jsonl` |
 
 ## 0. Source Dataset Layout
 
@@ -103,7 +103,7 @@ Scene keys include the optional part suffix, for example `day_1__con_1__part1`; 
 
 ## 1. Extract DA3 Depth and Intrinsics
 
-`extract_depth.py` runs Depth Anything 3 on frame folders. It writes metric monocular depth maps and DA3 camera intrinsics aligned to the resized DA3 grid.
+`src/step_01_extract_depth.py` runs Depth Anything 3 on frame folders. It writes metric monocular depth maps and DA3 camera intrinsics aligned to the resized DA3 grid.
 
 Primary outputs:
 
@@ -113,25 +113,25 @@ Primary outputs:
 {split}/da3/nested/{video_name}/camera_params/intrinsics.npy
 ```
 
-The depth maps are later used by `filter_mask.py` to reject weak SAM masks and by `extract_person_depth_lift.py` to back-project mapped person pixels into camera-space summaries. The intrinsics are required for the depth-lift step.
+The depth maps are later used by `src/step_03_filter_mask.py` to reject weak SAM masks and by `src/step_09_extract_person_depth_lift.py` to back-project mapped person pixels into camera-space summaries. The intrinsics are required for the depth-lift step.
 
 ## 2. Extract SAM3 Person Masks
 
-`extract_mask.py` extracts person masks for EgoCom 1-minute chunks using SAM3. It can work from videos or pre-existing frame folders. It supports split selection, limits, GPU selection, skip-existing behavior, and sharded processing.
+`src/step_02_extract_mask.py` extracts person masks for EgoCom 1-minute chunks using SAM3. It can work from videos or pre-existing frame folders. It supports split selection, limits, GPU selection, skip-existing behavior, and sharded processing.
 
 Typical commands:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_mask.py --splits train --limit 1
-python /home/prj/egocom_preprocess/extract_mask.py --splits train,val --skip_existing --sam_gpus 0
-python /home/prj/egocom_preprocess/extract_mask.py --splits train --num_shards 8 --shard_index 0
+python /home/prj/egocom_preprocess/src/step_02_extract_mask.py --splits train --limit 1
+python /home/prj/egocom_preprocess/src/step_02_extract_mask.py --splits train,val --skip_existing --sam_gpus 0
+python /home/prj/egocom_preprocess/src/step_02_extract_mask.py --splits train --num_shards 8 --shard_index 0
 ```
 
 The mask payload is a frame-indexed dictionary of segment ids and boolean masks. These raw SAM masks are treated as an input artifact. Later refinement writes a copy rather than modifying the original masks.
 
 ## 3. Refine Masks With Depth
 
-`filter_mask.py` filters SAM person masks with DA3 depth maps. Its central rule is frame-level rejection: it removes a specific `(frame_idx, segment_id)` only when that instance lacks enough depth discontinuity from its local surroundings. It does not delete a segment id globally unless every frame instance of that id is rejected.
+`src/step_03_filter_mask.py` filters SAM person masks with DA3 depth maps. Its central rule is frame-level rejection: it removes a specific `(frame_idx, segment_id)` only when that instance lacks enough depth discontinuity from its local surroundings. It does not delete a segment id globally unless every frame instance of that id is rejected.
 
 Input and output paths:
 
@@ -165,13 +165,13 @@ Important defaults:
 Typical commands:
 
 ```bash
-python /home/prj/egocom_preprocess/filter_mask.py --overwrite
-python /home/prj/egocom_preprocess/filter_mask.py --dry_run
+python /home/prj/egocom_preprocess/src/step_03_filter_mask.py --overwrite
+python /home/prj/egocom_preprocess/src/step_03_filter_mask.py --dry_run
 ```
 
 ## 4. Extract Face Identity Embeddings
 
-`extract_person_embeding.py` extracts per-segment face identity embeddings from refined masks. It uses InsightFace only for face detection and StyleID, implemented through Hugging Face `CLIPModel`, for the final embedding vectors.
+`src/step_04_extract_person_embeding.py` extracts per-segment face identity embeddings from refined masks. It uses InsightFace only for face detection and StyleID, implemented through Hugging Face `CLIPModel`, for the final embedding vectors.
 
 Inputs and outputs:
 
@@ -210,27 +210,27 @@ Useful defaults:
 Example commands:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_person_embeding.py --split train --video vid_001__day_1__con_1__person_1_part1_chunk_0001 --overwrite
+python /home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py --split train --video vid_001__day_1__con_1__person_1_part1_chunk_0001 --overwrite
 
-python /home/prj/egocom_preprocess/extract_person_embeding.py --mask_path /path/to/mask.pt --frame_dir /path/to/frame_dir --output_dir /tmp/person_face_emb_smoke --max_frames 30 --overwrite
+python /home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py --mask_path /path/to/mask.pt --frame_dir /path/to/frame_dir --output_dir /tmp/person_face_emb_smoke --max_frames 30 --overwrite
 ```
 
 If `--device auto` selects CUDA but ONNXRuntime does not provide `CUDAExecutionProvider`, the script raises an error rather than silently falling back for the detector.
 
 ## 5. Map Local Segments to Scene Person IDs
 
-`map_person_face_embedding.py` maps clip-local refined-mask segment ids to real scene person ids using face embedding similarity. This first mapping pass selects a stable, conflict-free chunk for each scene and writes representative person prototypes.
+`src/step_05_map_person_face_embedding.py` maps clip-local refined-mask segment ids to real scene person ids using face embedding similarity. This first mapping pass selects a stable, conflict-free chunk for each scene and writes representative person prototypes.
 
 Default command:
 
 ```bash
-python /home/prj/egocom_preprocess/map_person_face_embedding.py --split train --save_vis
+python /home/prj/egocom_preprocess/src/step_05_map_person_face_embedding.py --split train --save_vis
 ```
 
 Focused smoke-test command:
 
 ```bash
-python /home/prj/egocom_preprocess/map_person_face_embedding.py --split train --scene_key day_1__con_1__part1 --save_vis --overwrite
+python /home/prj/egocom_preprocess/src/step_05_map_person_face_embedding.py --split train --scene_key day_1__con_1__part1 --save_vis --overwrite
 ```
 
 For each candidate chunk, the mapper reads:
@@ -284,16 +284,16 @@ Important report files:
 {split}/person_face_mapping/{scene_key}/details.json
 ```
 
-Use these files after running `map_person_face_embedding.py` to check whether scenes resolved cleanly or needed fallback chunks.
+Use these files after running `src/step_05_map_person_face_embedding.py` to check whether scenes resolved cleanly or needed fallback chunks.
 
 ## 7. Remap Every Chunk in Each Scene
 
-`remap_person_face_all_chunks.py` takes the selected conflict-free chunk's representative embeddings as fixed person prototypes, then remaps every chunk in the same scene. It does not modify original or refined mask files. If multiple disconnected segment ids indicate the same real person, it records them as a merged group.
+`src/step_07_remap_person_face_all_chunks.py` takes the selected conflict-free chunk's representative embeddings as fixed person prototypes, then remaps every chunk in the same scene. It does not modify original or refined mask files. If multiple disconnected segment ids indicate the same real person, it records them as a merged group.
 
 Command:
 
 ```bash
-python /home/prj/egocom_preprocess/remap_person_face_all_chunks.py --split all_existing --save_vis --overwrite
+python /home/prj/egocom_preprocess/src/step_07_remap_person_face_all_chunks.py --split all_existing --save_vis --overwrite
 ```
 
 The all-chunk process is:
@@ -329,7 +329,7 @@ Primary outputs:
 
 ## 8. Inspect Merged Segment Cases
 
-`report_merged_segments.py` creates compact HTML and JSON reports listing visualization folders where a person has more than one segment id after all-chunk remapping.
+`src/step_08_report_merged_segments.py` creates compact HTML and JSON reports listing visualization folders where a person has more than one segment id after all-chunk remapping.
 
 Outputs:
 
@@ -343,7 +343,7 @@ Use `merged_segments_report.html` to inspect disconnected tracks assigned to the
 
 ## 9a. Lift Mapped Persons Into Camera-Space Depth Summaries
 
-`extract_person_depth_lift.py` converts each mapped person mask into compact per-frame camera-space geometry. It combines final person mapping, refined segmentation, saved face detections, DA3 metric depth, and DA3 intrinsics.
+`src/step_09_extract_person_depth_lift.py` converts each mapped person mask into compact per-frame camera-space geometry. It combines final person mapping, refined segmentation, saved face detections, DA3 metric depth, and DA3 intrinsics.
 
 Inputs and output:
 
@@ -379,7 +379,7 @@ These `.npz` files become the geometry source for the window manifest.
 
 ## 9b. Extract Masked Person CLIP Features
 
-`extract_person_visual_clip.py` produces visual CLIP features for each mapped person track. It unions one or more refined-mask segment ids for a person, keeps the full frame but blacks out everything outside the mapped person mask, then feeds the masked image to CLIP ViT-L/14.
+`src/step_10_extract_person_visual_clip.py` produces visual CLIP features for each mapped person track. It unions one or more refined-mask segment ids for a person, keeps the full frame but blacks out everything outside the mapped person mask, then feeds the masked image to CLIP ViT-L/14.
 
 Inputs and outputs:
 
@@ -416,14 +416,14 @@ If a frame has no mapped segment for that person, the extractor feeds a full bla
 Command:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_person_visual_clip.py --split val
+python /home/prj/egocom_preprocess/src/step_10_extract_person_visual_clip.py --split val
 ```
 
 Use `--scene_key`, `--video`, or `--limit` for smaller runs, and `--overwrite` to regenerate existing feature files.
 
 ## 9c. Extract Mask-Pooled Positional Encoding Features
 
-[`extract_pe.py`](extract_pe.py) produces ViT-style positional encoding features for each mapped person track; implementation details are summarized in [`extract_pe_explanation.html`](extract_pe_explanation.html). It builds either a 2D sinusoidal table or a standalone 2D RoPE sin/cos table, resizes each target-person mask to the patch grid, and averages positional vectors over the covered patch area.
+[`src/step_13_extract_pe.py`](src/step_13_extract_pe.py) produces ViT-style positional encoding features for each mapped person track; implementation details are summarized in [`docs/step/step_13_extract_pe_explanation.html`](docs/step/step_13_extract_pe_explanation.html). It builds either a 2D sinusoidal table or a standalone 2D RoPE sin/cos table, resizes each target-person mask to the patch grid, and averages positional vectors over the covered patch area.
 
 Inputs and output:
 
@@ -439,15 +439,15 @@ Each `.pt` file stores frame-aligned `features` with shape `(num_source_frames, 
 Commands:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type sinusoidal
-python /home/prj/egocom_preprocess/extract_pe.py --split val --pe_type rope
+python /home/prj/egocom_preprocess/src/step_13_extract_pe.py --split val --pe_type sinusoidal
+python /home/prj/egocom_preprocess/src/step_13_extract_pe.py --split val --pe_type rope
 ```
 
 Use `--patches_per_side`, `--hidden_size`, and `--pe_scale` to change the PE grid. Defaults are `16`, `768`, and `1.0`.
 
 ## 9d. Generate Spatial Text With InternVL2
 
-`extract_person_internvl2_text.py` converts mapped person masks into frame-aligned spatial language. It uses the final remap chains, refined masks, and RGB frames to build a query pair: one image containing the masked person and one image containing the original frame. InternVL2 then writes one response line per frame.
+`src/step_14_extract_person_internvl2_text.py` converts mapped person masks into frame-aligned spatial language. It uses the final remap chains, refined masks, and RGB frames to build a query pair: one image containing the masked person and one image containing the original frame. InternVL2 then writes one response line per frame.
 
 Inputs and output:
 
@@ -470,13 +470,13 @@ the union mask has fewer than 100 pixels
 Example commands:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_person_internvl2_text.py --split val --limit 1 --dry_run --overwrite
-python /home/prj/egocom_preprocess/extract_person_internvl2_text.py --split val --min_mask_pixels 100
+python /home/prj/egocom_preprocess/src/step_14_extract_person_internvl2_text.py --split val --limit 1 --dry_run --overwrite
+python /home/prj/egocom_preprocess/src/step_14_extract_person_internvl2_text.py --split val --min_mask_pixels 100
 ```
 
 ## 10d. Encode Spatial Text With T5
 
-`extract_person_t5_text_features.py` encodes the InternVL2 text into T5-XXL pooled text features while preserving frame alignment. Each text line corresponds to one source frame, and each feature vector corresponds to one text line.
+`src/step_15_extract_person_t5_text_features.py` encodes the InternVL2 text into T5-XXL pooled text features while preserving frame alignment. Each text line corresponds to one source frame, and each feature vector corresponds to one text line.
 
 Inputs and output:
 
@@ -490,12 +490,12 @@ The output stores 4096-dimensional T5-XXL features with frame metadata. `null` r
 Command:
 
 ```bash
-python /home/prj/egocom_preprocess/extract_person_t5_text_features.py --split val
+python /home/prj/egocom_preprocess/src/step_15_extract_person_t5_text_features.py --split val
 ```
 
 ## 11. Build Windowed Multimodal Manifest
 
-`build_egocom_window_manifest.py` merges 1-minute chunk outputs into shorter multimodal samples. Each manifest row contains source and target audio windows, target geometry observed from the source camera, target CLIP visual features, target PE features, and target T5 text features aligned on the same 5 FPS frame grid.
+`src/step_16_build_egocom_window_manifest.py` merges 1-minute chunk outputs into shorter multimodal samples. Each manifest row contains source and target audio windows, target geometry observed from the source camera, target CLIP visual features, target PE features, and target T5 text features aligned on the same 5 FPS frame grid.
 
 Default split policy:
 
@@ -531,8 +531,8 @@ manifest/build_summary_mm.json
 Commands:
 
 ```bash
-python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits train,val --overwrite
-python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits test --overwrite
+python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits train,val --overwrite
+python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits test --overwrite
 ```
 
 The new multimodal manifest and T5 sidecars can be regenerated with `--overwrite`. Existing audio, geometry, CLIP, and PE sidecars are reused when present.

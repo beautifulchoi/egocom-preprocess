@@ -2,7 +2,7 @@
 Lift EgoCom mapped person masks into per-frame camera-space depth summaries.
 
 This step consumes refined masks, person-face mappings, saved face bboxes from
-extract_person_embeding.py, DA3 monocular depth, and DA3 nested intrinsics.
+src/step_04_extract_person_embeding.py, DA3 monocular depth, and DA3 nested intrinsics.
 """
 
 from __future__ import annotations

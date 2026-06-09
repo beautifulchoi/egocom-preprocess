@@ -2,7 +2,7 @@
 """
 Extract mask-pooled CLIP patch-token features for EgoCom mapped person tracks.
 
-Unlike extract_person_visual_clip.py, this extractor does not black out the
+Unlike src/step_10_extract_person_visual_clip.py, this extractor does not black out the
 image before CLIP and does not use CLIP's CLS/global image feature. It runs CLIP
 on the full RGB frame, reshapes patch tokens from a selected vision hidden
 state to the patch grid, resizes the person mask to that grid, and mask-pools
@@ -35,7 +35,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from extract_person_visual_clip import (
+from step_10_extract_person_visual_clip import (
     DEFAULT_DATA_ROOT,
     DEFAULT_MODEL_ID,
     Assignment,

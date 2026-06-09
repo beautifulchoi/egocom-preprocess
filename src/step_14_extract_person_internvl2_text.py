@@ -36,7 +36,7 @@ from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 from tqdm import tqdm
 
-from extract_person_visual_clip import (
+from step_10_extract_person_visual_clip import (
     Assignment,
     CLIP_RE,
     black_image,

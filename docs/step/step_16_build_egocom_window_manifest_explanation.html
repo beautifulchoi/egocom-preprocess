@@ -437,22 +437,22 @@
 
   <h2>Commands</h2>
   <div class="panel small">
-    <p><code>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits train,val --overwrite</code></p>
-    <p><code>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py --splits test --overwrite</code></p>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <p><code>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits train,val --overwrite</code></p>
+    <p><code>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits test --overwrite</code></p>
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits train \
   --window-sec 10 \
   --overlap 0.5 \
   --output-tag 10s_overlap0.5_v2 \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits val,test \
   --window-sec 10 \
   --overlap 0 \
   --output-tag 10s_overlap0_v2 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits val \
   --window-sec 10 \
   --overlap 0 \
@@ -475,7 +475,7 @@
   vid_030__day_1__con_2__person_3_part5 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits test \
   --window-sec 10 \
   --overlap 0 \
@@ -495,7 +495,7 @@
   vid_054__day_1__con_4__person_3_part4 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits test \
   --output-tag 4s_overlap0_v2_day1_con4_parts \
   --audio-stem-allowlist \
@@ -512,7 +512,7 @@
   vid_053__day_1__con_4__person_3_part3 \
   vid_054__day_1__con_4__person_3_part4 \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
   --splits val \
   --output-tag 6s_overlap0.5_v2_day1_con2_parts \
   --audio-stem-allowlist \

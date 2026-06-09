@@ -2,7 +2,7 @@
 """
 Extract mask-pooled Depth Anything 3 feature-map vectors for EgoCom person tracks.
 
-This extractor mirrors extract_person_masked_clip.py at the data/output level,
+This extractor mirrors src/step_11_extract_person_masked_clip.py at the data/output level,
 but uses DA3 spatial feature maps instead of CLIP patch tokens. It does not edit
 the vendored DA3 source tree; it imports DA3 from _external/depth-anything-3/src
 and uses the model's existing backbone feature-export path.
@@ -32,8 +32,8 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from extract_person_masked_clip import FrameMask, collect_frame_masks
-from extract_person_visual_clip import (
+from step_11_extract_person_masked_clip import FrameMask, collect_frame_masks
+from step_10_extract_person_visual_clip import (
     DEFAULT_DATA_ROOT,
     Assignment,
     collect_assignments_for_split,
@@ -46,7 +46,7 @@ from extract_person_visual_clip import (
 )
 
 
-DA3_SRC = Path(__file__).resolve().parent / "_external" / "depth-anything-3" / "src"
+DA3_SRC = Path(__file__).resolve().parents[1] / "_external" / "depth-anything-3" / "src"
 DEFAULT_MODEL_ID = "depth-anything/DA3METRIC-LARGE"
 DEFAULT_LAYER = 23
 DEFAULT_PROCESS_RES = 504

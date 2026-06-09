@@ -25,12 +25,12 @@
 <main>
   <h1>EgoCom All-Chunk Person Remapping</h1>
   <p>
-    <code>remap_person_face_all_chunks.py</code> uses the selected conflict-free chunk's representative embeddings as
+    <code>src/step_07_remap_person_face_all_chunks.py</code> uses the selected conflict-free chunk's representative embeddings as
     fixed person prototypes, then remaps every chunk in the scene. It does not modify original mask files. If multiple
     disconnected segment ids indicate the same real person, it records them as a merged group.
   </p>
 
-  <pre>python /home/prj/egocom_preprocess/remap_person_face_all_chunks.py --split all_existing --save_vis --overwrite</pre>
+  <pre>python /home/prj/egocom_preprocess/src/step_07_remap_person_face_all_chunks.py --split all_existing --save_vis --overwrite</pre>
 
   <h2>Process</h2>
   <div class="diagram">

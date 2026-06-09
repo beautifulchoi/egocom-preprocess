@@ -157,16 +157,16 @@
 <main>
   <h1>EgoCom Face-Embedding Person Mapping</h1>
   <p class="lead">
-    This document explains <code>map_person_face_embedding.py</code>, which maps clip-local refined-mask segment ids
+    This document explains <code>src/step_05_map_person_face_embedding.py</code>, which maps clip-local refined-mask segment ids
     to real scene person ids using face embedding similarity. The script tries chunks in order and falls forward when
     a chunk produces conflicting person assignments, then writes mapping outputs under the dataset split.
   </p>
 
   <div class="note">
     Default command:
-    <pre>python /home/prj/egocom_preprocess/map_person_face_embedding.py --split train --save_vis</pre>
+    <pre>python /home/prj/egocom_preprocess/src/step_05_map_person_face_embedding.py --split train --save_vis</pre>
     Focused smoke-test command:
-    <pre>python /home/prj/egocom_preprocess/map_person_face_embedding.py --split train --scene_key day_1__con_1__part1 --save_vis --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/src/step_05_map_person_face_embedding.py --split train --scene_key day_1__con_1__part1 --save_vis --overwrite</pre>
   </div>
 
   <h2>Input Layout</h2>

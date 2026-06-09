@@ -13,9 +13,9 @@ Segments with no valid face detection are omitted from embeding.pt and recorded 
 in summary.json.
 
 Examples:
-  python extract_person_embeding.py --split train --video vid_001__day_1__con_1__person_1_part1_chunk_0001
-  python extract_person_embeding.py --split train --sample_every 5 --overwrite
-  python extract_person_embeding.py --mask_path /path/to/mask.pt --frame_dir /path/to/frames
+  python src/step_04_extract_person_embeding.py --split train --video vid_001__day_1__con_1__person_1_part1_chunk_0001
+  python src/step_04_extract_person_embeding.py --split train --sample_every 5 --overwrite
+  python src/step_04_extract_person_embeding.py --mask_path /path/to/mask.pt --frame_dir /path/to/frames
 """
 
 from __future__ import annotations

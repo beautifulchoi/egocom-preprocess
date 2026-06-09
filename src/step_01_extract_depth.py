@@ -21,7 +21,7 @@ import numpy as np
 import torch
 
 
-DA3_SRC = Path(__file__).resolve().parent / "_external" / "depth-anything-3" / "src"
+DA3_SRC = Path(__file__).resolve().parents[1] / "_external" / "depth-anything-3" / "src"
 if str(DA3_SRC) not in sys.path:
     sys.path.insert(0, str(DA3_SRC))
 

@@ -8,9 +8,9 @@ Default layout:
   /home/prj/data/egocom_holdout/1min/{split}/{video_name}/frame_overlay/frame00000.jpg
 
 Examples:
-  python extract_mask.py --splits train --limit 1
-  python extract_mask.py --splits train,val --skip_existing --sam_gpus 0
-  python extract_mask.py --splits train --num_shards 8 --shard_index 0
+  python src/step_02_extract_mask.py --splits train --limit 1
+  python src/step_02_extract_mask.py --splits train,val --skip_existing --sam_gpus 0
+  python src/step_02_extract_mask.py --splits train --num_shards 8 --shard_index 0
 """
 
 import argparse

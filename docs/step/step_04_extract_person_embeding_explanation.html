@@ -235,7 +235,7 @@
 <main>
   <h1>Person Face Embedding Extraction</h1>
   <p class="lead">
-    This page explains how <code>/home/prj/egocom_preprocess/extract_person_embeding.py</code>
+    This page explains how <code>/home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py</code>
     extracts face identity embeddings from refined person masks. The script uses InsightFace only
     to find face boxes, then uses StyleID to create the final embedding vectors.
   </p>
@@ -593,19 +593,19 @@ styleid_device: "cuda:0"</code></pre>
 
   <h2>Common Commands</h2>
   <p>Run on one explicit mask file and write to <code>person_face_emb</code>:</p>
-  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  <pre><code>python /home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py \
   --mask_path /home/prj/data/egocom_holdout/1min/train/refined_mask/vid_001__day_1__con_1__person_1_part1_chunk_0001/mask.pt \
   --output_root /home/prj/data/egocom_holdout/1min/train/person_face_emb \
   --overwrite</code></pre>
 
   <p>Run on one named video using the default dataset layout:</p>
-  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  <pre><code>python /home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py \
   --split train \
   --video vid_001__day_1__con_1__person_1_part1_chunk_0001 \
   --overwrite</code></pre>
 
   <p>Run a quick smoke test on only the first 30 frames:</p>
-  <pre><code>python /home/prj/egocom_preprocess/extract_person_embeding.py \
+  <pre><code>python /home/prj/egocom_preprocess/src/step_04_extract_person_embeding.py \
   --mask_path /path/to/mask.pt \
   --frame_dir /path/to/frame_dir \
   --output_dir /tmp/person_face_emb_smoke \

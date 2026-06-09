@@ -198,7 +198,7 @@
 <main>
   <h1>Depth-Based Mask Refinement</h1>
   <p class="lead">
-    This page explains how <code>/home/prj/egocom_preprocess/filter_mask.py</code>
+    This page explains how <code>/home/prj/egocom_preprocess/src/step_03_filter_mask.py</code>
     filters SAM person masks using Depth Anything 3 depth maps. The important detail is
     that filtering is done per frame and per segment id, not by deleting an id track everywhere.
   </p>
@@ -576,15 +576,15 @@
 
   <h2>Commands</h2>
   <p>Run one clip:</p>
-  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py \
+  <pre><code>python /home/prj/egocom_preprocess/src/step_03_filter_mask.py \
   --video vid_001__day_1__con_1__person_1_part1_chunk_0003 \
   --overwrite</code></pre>
 
   <p>Run every split that currently has both masks and depth:</p>
-  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py --overwrite</code></pre>
+  <pre><code>python /home/prj/egocom_preprocess/src/step_03_filter_mask.py --overwrite</code></pre>
 
   <p>Check without writing output:</p>
-  <pre><code>python /home/prj/egocom_preprocess/filter_mask.py --dry_run</code></pre>
+  <pre><code>python /home/prj/egocom_preprocess/src/step_03_filter_mask.py --dry_run</code></pre>
 </main>
 </body>
 </html>
