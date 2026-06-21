@@ -94,8 +94,8 @@
     This step merges 1-minute EgoCom chunk outputs into shorter multimodal
     samples and writes pairwise manifest rows. Each row contains source and
     target audio windows, target geometry observed from the source camera,
-    target CLIP visual features, and target T5 text features aligned to the
-    same 5 FPS frame grid. When requested, it also writes source and target
+    target CLIP visual features, target T5 text features, and target final
+    person-mask windows aligned to the same 5 FPS frame grid. When requested, it also writes source and target
     original-video clips for the same window interval.
   </p>
 
@@ -166,7 +166,7 @@
     </defs>
     <rect x="30" y="40" width="230" height="72" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
     <text x="50" y="72" font-size="17" fill="#172026">1-minute chunks</text>
-    <text x="50" y="96" font-size="13" fill="#5d6872">depth, xy-ray, CLIP, T5</text>
+    <text x="50" y="96" font-size="13" fill="#5d6872">depth, xy-ray, CLIP, T5, masks</text>
 
     <rect x="330" y="40" width="230" height="72" rx="8" fill="#eef8f0" stroke="#17803d"></rect>
     <text x="350" y="72" font-size="17" fill="#172026">Global timeline</text>
@@ -183,7 +183,7 @@
 
     <rect x="480" y="190" width="230" height="86" rx="8" fill="#eef3f6" stroke="#5d6872"></rect>
     <text x="500" y="222" font-size="17" fill="#172026">Window sidecars</text>
-    <text x="500" y="246" font-size="13" fill="#5d6872">audio, geometry, CLIP, T5</text>
+    <text x="500" y="246" font-size="13" fill="#5d6872">audio, geometry, CLIP, T5, masks</text>
     <text x="500" y="266" font-size="13" fill="#5d6872">aligned frame intervals</text>
 
     <rect x="780" y="190" width="230" height="86" rx="8" fill="#e8f0fe" stroke="#2563eb"></rect>
@@ -197,6 +197,28 @@
     <line x1="380" y1="233" x2="480" y2="233" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
     <line x1="710" y1="233" x2="780" y2="233" stroke="#5d6872" stroke-width="2" marker-end="url(#arrow)"></line>
   </svg>
+
+  <h2>Target Mask Matching</h2>
+  <div class="panel">
+    <p>
+      The final mask source is <code>{data_root}/{chunk_root}/{split}/final_mask</code>,
+      produced by Step 09. For each manifest row, the builder uses the source
+      camera video and the target person id: <code>{scene}/chunk_XXXX/{src_video_name}_chunk_XXXX/person_{tgt_person_id}</code>.
+      This matches the target audio/person identity while preserving the same
+      source-camera viewpoint used by target geometry and masked visual features.
+    </p>
+    <p>
+      Output mask windows are written under
+      <code>final_mask/{scene}/{src_video_name}/target_person_{tgt_person_id}/{sidecar_name}/</code>.
+      Each directory contains window-local mask JPGs plus <code>summary.json</code>
+      with source mask paths, source chunk indices, and frame provenance. If a
+      source chunk has no Step 09 folder for the target person, the window writer
+      emits black masks at the corresponding source-frame size and records those
+      frames as black fallbacks. Manifest rows store <code>tgt_mask_path</code>,
+      <code>tgt_mask_num_frames</code>, <code>tgt_mask_valid_ratio</code>, and
+      aligned mask start/end timestamps.
+    </p>
+  </div>
 
   <h2>Chunk Aggregation</h2>
   <div class="panel">
@@ -431,28 +453,29 @@
       <tr><td><code>depth_xy_ray/</code></td><td>Target geometry sidecars with <code>x_ray</code>, <code>y_ray</code>, and <code>d</code>.</td></tr>
       <tr><td><code>clip_features/</code></td><td>Target CLIP feature windows and per-frame status metadata.</td></tr>
       <tr><td><code>t5_text_features/</code></td><td>Target T5 feature windows with raw text, encoded text, and null-frame metadata.</td></tr>
+      <tr><td><code>final_mask/</code></td><td>Window-local JPG mask directories for the target person as seen from the source camera.</td></tr>
       <tr><td><code>manifest/</code></td><td><code>manifest_mm.jsonl</code> and <code>build_summary_mm.json</code>.</td></tr>
     </tbody>
   </table>
 
   <h2>Commands</h2>
   <div class="panel small">
-    <p><code>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits train,val --overwrite</code></p>
-    <p><code>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits test --overwrite</code></p>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <p><code>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py --splits train,val --overwrite</code></p>
+    <p><code>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py --splits test --overwrite</code></p>
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits train \
   --window-sec 10 \
   --overlap 0.5 \
   --output-tag 10s_overlap0.5_v2 \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits val,test \
   --window-sec 10 \
   --overlap 0 \
   --output-tag 10s_overlap0_v2 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits val \
   --window-sec 10 \
   --overlap 0 \
@@ -475,7 +498,7 @@
   vid_030__day_1__con_2__person_3_part5 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits test \
   --window-sec 10 \
   --overlap 0 \
@@ -495,7 +518,7 @@
   vid_054__day_1__con_4__person_3_part4 \
   --write-video-windows \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits test \
   --output-tag 4s_overlap0_v2_day1_con4_parts \
   --audio-stem-allowlist \
@@ -512,7 +535,7 @@
   vid_053__day_1__con_4__person_3_part3 \
   vid_054__day_1__con_4__person_3_part4 \
   --overwrite</pre>
-    <pre>python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py \
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
   --splits val \
   --output-tag 6s_overlap0.5_v2_day1_con2_parts \
   --audio-stem-allowlist \
@@ -531,6 +554,20 @@
   vid_028__day_1__con_2__person_3_part3 \
   vid_029__day_1__con_2__person_3_part4 \
   vid_030__day_1__con_2__person_3_part5 \
+  --overwrite</pre>
+    <h3>Mask validation</h3>
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
+  --splits train \
+  --scene-key day_1__con_1__part1 \
+  --limit-windows-per-pair 2 \
+  --max-records 4 \
+  --output-root /tmp/egocom_step17_mask_sample \
+  --overwrite</pre>
+    <pre>python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py \
+  --splits train,val,test \
+  --limit-scenes 1 \
+  --max-records 20 \
+  --output-root /tmp/egocom_step17_mask_smoke \
   --overwrite</pre>
     <p>
       The test command uses <code>--test-min-geometry-valid-ratio 0.25</code>

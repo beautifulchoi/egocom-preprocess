@@ -120,13 +120,13 @@
   <h1>EgoCom Mask-Pooled CLIP And DA3 Features</h1>
   <p>
     This document describes the two frame-aligned masked feature extractors:
-    <code>src/step_11_extract_person_masked_clip.py</code> and
-    <code>src/step_12_extract_person_masked_da3.py</code>. Both run the model on the full
+    <code>src/step_12_extract_person_masked_clip.py</code> and
+    <code>src/step_13_extract_person_masked_da3.py</code>. Both run the model on the full
     RGB frame, align the mapped person mask to the model's spatial feature
     grid, and average only the features covered by that mask.
   </p>
   <p>
-    This is different from <code>src/step_10_extract_person_visual_clip.py</code>, which
+    This is different from <code>src/step_11_extract_person_visual_clip.py</code>, which
     blacks out non-person pixels before running CLIP and then saves CLIP's
     global image feature. The mask-pooled extractors preserve the original
     full-frame model input and apply the mask at the spatial feature level.
@@ -325,7 +325,7 @@
 
   <h2>CLIP Mask-Pooled Patch Token Features</h2>
   <p>
-    <code>src/step_11_extract_person_masked_clip.py</code> runs Hugging Face CLIP vision
+    <code>src/step_12_extract_person_masked_clip.py</code> runs Hugging Face CLIP vision
     on the full RGB frame with hidden states enabled. It selects the requested
     hidden state, drops the first CLS token, infers the square patch grid, and
     resizes the person mask to that grid with nearest-neighbor interpolation.
@@ -347,7 +347,7 @@ f_t_clip = z_t_clip / max(L2Norm(z_t_clip), eps_norm)</pre>
 
   <h2>DA3 Mask-Pooled Feature Map Features</h2>
   <p>
-    <code>src/step_12_extract_person_masked_da3.py</code> imports Depth Anything 3 from
+    <code>src/step_13_extract_person_masked_da3.py</code> imports Depth Anything 3 from
     <code>_external/depth-anything-3/src</code> without editing the vendored
     source. It uses DA3's input processor and backbone export path to obtain
     an auxiliary feature map, then applies the same resize/crop geometry to
@@ -441,14 +441,14 @@ f_t_da3 = z_t_da3 / max(L2Norm(z_t_da3), eps_norm)</pre>
   </div>
 
   <h2>Commands</h2>
-  <pre>python /home/prj/egocom_preprocess/src/step_11_extract_person_masked_clip.py --split val
+  <pre>python /home/prj/egocom_preprocess/src/step_12_extract_person_masked_clip.py --split val
 
-python /home/prj/egocom_preprocess/src/step_12_extract_person_masked_da3.py \
+python /home/prj/egocom_preprocess/src/step_13_extract_person_masked_da3.py \
   --split val \
   --batch_size 1 \
   --expected_dim 1024
 
-python /home/prj/egocom_preprocess/src/step_12_extract_person_masked_da3.py \
+python /home/prj/egocom_preprocess/src/step_13_extract_person_masked_da3.py \
   --split all_existing \
   --device cuda:0 \
   --batch_size 1 \

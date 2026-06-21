@@ -110,7 +110,7 @@
 <main>
   <h1>EgoCom Mask-Pooled Positional Encoding Features</h1>
   <p>
-    <code>src/step_13_extract_pe.py</code> adds a frame-aligned positional encoding feature
+    <code>src/step_14_extract_pe.py</code> adds a frame-aligned positional encoding feature
     branch for mapped EgoCom person tracks. Instead of masking RGB pixels and
     extracting one global visual feature, it builds a ViT-style 2D positional
     table, resizes each target-person segmentation mask to the patch grid, and
@@ -257,7 +257,7 @@ pooled = mask @ features / (mask.sum(-1, keepdim=True) + 1e-6)</pre>
 
   <h2>Manifest Integration</h2>
   <p>
-    <code>src/step_16_build_egocom_window_manifest.py</code> now requires the PE branch next
+    <code>src/step_17_build_egocom_window_manifest.py</code> now requires the PE branch next
     to depth, CLIP, and T5. It discovers
     <code>{split}/person_pe_features/{scene}/person_{id}/*.pt</code>, merges
     chunks onto the same global 5 FPS timeline, writes windowed PE sidecars, and
@@ -266,9 +266,9 @@ pooled = mask @ features / (mask.sum(-1, keepdim=True) + 1e-6)</pre>
   </p>
 
   <h2>Commands</h2>
-  <pre>python /home/prj/egocom_preprocess/src/step_13_extract_pe.py --split val --pe_type sinusoidal
-python /home/prj/egocom_preprocess/src/step_13_extract_pe.py --split val --pe_type rope
-python /home/prj/egocom_preprocess/src/step_16_build_egocom_window_manifest.py --splits train,val --overwrite</pre>
+  <pre>python /home/prj/egocom_preprocess/src/step_14_extract_pe.py --split val --pe_type sinusoidal
+python /home/prj/egocom_preprocess/src/step_14_extract_pe.py --split val --pe_type rope
+python /home/prj/egocom_preprocess/src/step_17_build_egocom_window_manifest.py --splits train,val --overwrite</pre>
   <p class="small">
     Use <code>--scene_key</code>, <code>--video</code>, or <code>--limit</code> for
     smaller extraction runs. Use <code>--output_root</code> for smoke tests that

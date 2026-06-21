@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Step 09 - Final Person Mask Extraction</title>
+  <style>
+    body {
+      color: #1f2933;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+      margin: 0;
+      background: #f7f8fa;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+      background: #ffffff;
+    }
+    h1, h2 {
+      color: #102a43;
+      line-height: 1.2;
+    }
+    code, pre {
+      background: #eef2f7;
+      border-radius: 4px;
+      color: #102a43;
+      font-family: Consolas, Monaco, monospace;
+    }
+    code {
+      padding: 2px 4px;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 14px 16px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+    }
+    th, td {
+      border: 1px solid #d9e2ec;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2f7;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Step 09 - Final Person Mask Extraction</h1>
+
+  <p>
+    <code>src/step_09_extract_final_person_masks.py</code> materializes the final
+    per-person masks that are implied by the remapped face-to-segment chains.
+    It runs after <code>step_08_report_merged_segments.py</code> and before the
+    depth-lift, visual-CLIP, masked-pooling, and spatial-text feature steps.
+  </p>
+
+  <h2>Inputs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Input</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>{split}/person_face_mapping/{scene}/remap_all_chunks.json</code></td>
+        <td>Maps each target person id to one or more refined segment ids for every view clip.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/refined_mask/{view_clip}/mask.pt</code></td>
+        <td>Stores frame-indexed refined person masks by segment id.</td>
+      </tr>
+      <tr>
+        <td><code>{split}/frame/{view_clip}/*.jpg</code></td>
+        <td>Provides the canonical frame order, frame names, and output image shape.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Mask Mapping</h2>
+  <p>
+    For each view clip in each remapped chunk, the script reads the
+    <code>people</code> block. A target person uses
+    <code>merged_segment_ids</code> when available and falls back to
+    <code>primary_segment_id</code>. All available segment masks for that person
+    are unioned per frame. If no mapped segment appears in a frame, the script
+    still writes an all-black mask so that the output sequence remains aligned
+    one-to-one with the frame directory.
+  </p>
+
+  <h2>Outputs</h2>
+  <pre><code>{split}/final_mask/{scene_key}/chunk_XXXX/{view_clip}/person_{id}/{frame_name}.jpg
+{split}/final_mask/{scene_key}/chunk_XXXX/{view_clip}/summary.json
+{split}/final_mask/summary.json</code></pre>
+
+  <p>
+    The JPG masks are grayscale 8-bit images. Foreground person pixels are
+    written as 255 and background pixels as 0. The filename is copied directly
+    from the corresponding source frame, for example
+    <code>frame_000175.jpg</code>.
+  </p>
+
+  <h2>Usage</h2>
+  <pre><code>python /home/prj/egocom_preprocess/src/step_09_extract_final_person_masks.py --split train
+python /home/prj/egocom_preprocess/src/step_09_extract_final_person_masks.py --split all_existing --overwrite
+python /home/prj/egocom_preprocess/src/step_09_extract_final_person_masks.py --split train --scene_key day_1__con_1__part1 --limit 1 --overwrite</code></pre>
+
+  <h2>Diagnostics</h2>
+  <p>
+    Each view-level <code>summary.json</code> records the mapped people,
+    segment ids, source paths, frame count, nonempty-mask count, black-mask
+    count, and unreadable-frame count. The split-level summary aggregates the
+    same counters across all processed views.
+  </p>
+</main>
+</body>
+</html>

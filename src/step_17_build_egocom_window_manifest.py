@@ -9,6 +9,7 @@ Inputs:
   {data_root}/{chunk_root}/{split}/person_masked_clip_features/{scene}/person_{id}/*.pt
   {data_root}/{chunk_root}/{split}/person_masked_da3_features/{scene}/person_{id}/*.pt
   {data_root}/{chunk_root}/{split}/person_spatial_t5_features/{scene}/person_{id}/*.pt
+  {data_root}/{chunk_root}/{split}/final_mask/{scene}/chunk_XXXX/{video}/person_{id}/*.jpg
   {data_root}/original/{split}/audio/*.wav
   {data_root}/original/{split}/video/*.MP4
 
@@ -21,6 +22,7 @@ Outputs:
   {data_root}/{output_tag}/{split}/masked_clip_features
   {data_root}/{output_tag}/{split}/masked_da3_features
   {data_root}/{output_tag}/{split}/t5_text_features
+  {data_root}/{output_tag}/{split}/final_mask
   {data_root}/{output_tag}/{split}/manifest/manifest_mm.jsonl
 """
 
@@ -30,12 +32,14 @@ import argparse
 import json
 import math
 import re
+import shutil
 import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 import soundfile as sf
 import torch
@@ -68,6 +72,7 @@ class SplitIndex:
     masked_clip: dict[tuple[str, int, str], list[ChunkPath]]
     masked_da3: dict[tuple[str, int, str], list[ChunkPath]]
     text: dict[tuple[str, int, str], list[ChunkPath]]
+    masks: dict[tuple[str, int, str], list[ChunkPath]]
     camera_to_base: dict[str, dict[int, str]]
     scenes: list[str]
 
@@ -164,6 +169,19 @@ class TextStream:
     feature_model_id: str
 
 
+@dataclass
+class MaskStream:
+    num_frames: int
+    chunk_intervals: list[ChunkInterval]
+    frame_indices: np.ndarray
+    frame_stems: np.ndarray
+    source_frame_paths: np.ndarray
+    mask_paths: np.ndarray
+    source_mask_available: np.ndarray
+    valid_mask: np.ndarray
+    source_chunk_index: np.ndarray
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build windowed EgoCom manifests from chunked depth, CLIP, T5 text, and original audio.",
@@ -228,6 +246,16 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.25,
         help="Minimum target geometry valid ratio for test windows. Set negative to disable.",
+    )
+    parser.add_argument(
+        "--keep-fully-absent-target-visual",
+        action="store_true",
+        help="Keep windows where target visual features are present but all frame statuses are absent.",
+    )
+    parser.add_argument(
+        "--keep-empty-target-windows",
+        action="store_true",
+        help="Keep windows with zero valid target geometry, CLIP, PE, or T5 frames by writing padded sidecars.",
     )
     parser.add_argument("--missing-policy", choices=("skip", "strict"), default="skip")
     parser.add_argument("--scene-key", default=None)
@@ -414,7 +442,8 @@ def discover_split_index(
     masked_clip_root = split_root / "person_masked_clip_features"
     masked_da3_root = split_root / "person_masked_da3_features"
     text_root = split_root / "person_spatial_t5_features"
-    required_roots = (depth_root, clip_root, pe_root, masked_clip_root, masked_da3_root, text_root)
+    mask_root = split_root / "final_mask"
+    required_roots = (depth_root, clip_root, pe_root, masked_clip_root, masked_da3_root, text_root, mask_root)
     if not all(root.is_dir() for root in required_roots):
         return None
     conflicted = conflicted or {}
@@ -425,6 +454,7 @@ def discover_split_index(
     masked_clip: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     masked_da3: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     text: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
+    masks: dict[tuple[str, int, str], list[ChunkPath]] = defaultdict(list)
     camera_to_base: dict[str, dict[int, str]] = defaultdict(dict)
 
     def add_camera(scene: str, base_video: str) -> None:
@@ -517,6 +547,24 @@ def discover_split_index(
             text[(scene, target_person, base_video)].append(ChunkPath(chunk_index, pt_path))
             add_camera(scene, base_video)
 
+    for person_dir in sorted(mask_root.glob("*/chunk_*/*/person_*")):
+        if not person_dir.is_dir():
+            continue
+        video_dir = person_dir.parent
+        chunk_dir = video_dir.parent
+        scene = chunk_dir.parent.name
+        target_person = int(person_dir.name.split("_", 1)[1])
+        parsed = parse_chunk_stem(video_dir.name)
+        if parsed is None:
+            continue
+        base_video, chunk_index = parsed
+        if chunk_dir.name != f"chunk_{chunk_index:04d}":
+            continue
+        if is_conflicted_chunk(conflicted, scene, chunk_index):
+            continue
+        masks[(scene, target_person, base_video)].append(ChunkPath(chunk_index, person_dir))
+        add_camera(scene, base_video)
+
     scenes = sorted(
         set(camera_to_base)
         | {key[0] for key in depth}
@@ -525,6 +573,7 @@ def discover_split_index(
         | {key[0] for key in masked_clip}
         | {key[0] for key in masked_da3}
         | {key[0] for key in text}
+        | {key[0] for key in masks}
     )
     for paths in depth.values():
         paths.sort(key=lambda item: item.chunk_index)
@@ -538,6 +587,8 @@ def discover_split_index(
         paths.sort(key=lambda item: item.chunk_index)
     for paths in text.values():
         paths.sort(key=lambda item: item.chunk_index)
+    for paths in masks.values():
+        paths.sort(key=lambda item: item.chunk_index)
     return SplitIndex(
         depth=dict(depth),
         clip=dict(clip),
@@ -545,6 +596,7 @@ def discover_split_index(
         masked_clip=dict(masked_clip),
         masked_da3=dict(masked_da3),
         text=dict(text),
+        masks=dict(masks),
         camera_to_base=dict(camera_to_base),
         scenes=scenes,
     )
@@ -1083,6 +1135,76 @@ def merge_text(
     )
 
 
+
+
+def merge_mask(
+    chunks: list[ChunkPath],
+    split_root: Path,
+    base_video: str,
+    fps: float,
+    chunk_sec: float,
+    base_chunk_intervals: list[ChunkInterval] | None = None,
+) -> MaskStream:
+    mask_dir_by_chunk = {chunk.chunk_index: chunk.path for chunk in chunks}
+    if base_chunk_intervals:
+        chunk_intervals = base_chunk_intervals
+    else:
+        chunk_intervals = loaded_chunk_intervals(
+            [(chunk, len(list_frame_files(chunk.path))) for chunk in chunks],
+            chunk_sec,
+            fps,
+            None,
+        )
+    max_end = max((interval.end_frame for interval in chunk_intervals), default=0)
+
+    frame_indices = np.arange(max_end, dtype=np.int32)
+    frame_stems = np.full((max_end,), "", dtype=object)
+    source_frame_paths = np.full((max_end,), None, dtype=object)
+    mask_paths = np.full((max_end,), None, dtype=object)
+    source_mask_available = np.zeros((max_end,), dtype=np.bool_)
+    valid_mask = np.zeros((max_end,), dtype=np.bool_)
+    source_chunk_index = np.zeros((max_end,), dtype=np.int32)
+
+    frame_root = split_root / "frame"
+    for interval in chunk_intervals:
+        start = interval.start_frame
+        max_len = interval.end_frame - interval.start_frame
+        frame_dir = frame_root / chunk_name(base_video, interval.chunk_index)
+        source_frames = list_frame_files(frame_dir)
+        mask_dir = mask_dir_by_chunk.get(interval.chunk_index)
+        mask_frames = list_frame_files(mask_dir) if mask_dir is not None else []
+        mask_by_name = {path.name: path for path in mask_frames}
+        length = min(max_len, max(len(source_frames), len(mask_frames)))
+        for local_idx in range(length):
+            global_idx = start + local_idx
+            if global_idx >= max_end:
+                continue
+            source_frame = source_frames[local_idx] if local_idx < len(source_frames) else None
+            if source_frame is not None:
+                source_frame_paths[global_idx] = str(source_frame)
+                frame_stems[global_idx] = source_frame.stem
+                mask_path = mask_by_name.get(source_frame.name)
+            else:
+                mask_path = mask_frames[local_idx] if local_idx < len(mask_frames) else None
+                frame_stems[global_idx] = mask_path.stem if mask_path is not None else ""
+            if mask_path is not None and mask_path.is_file():
+                mask_paths[global_idx] = str(mask_path)
+                source_mask_available[global_idx] = True
+            valid_mask[global_idx] = source_frame is not None or source_mask_available[global_idx]
+            source_chunk_index[global_idx] = interval.chunk_index
+
+    return MaskStream(
+        num_frames=max_end,
+        chunk_intervals=chunk_intervals,
+        frame_indices=frame_indices,
+        frame_stems=frame_stems,
+        source_frame_paths=source_frame_paths,
+        mask_paths=mask_paths,
+        source_mask_available=source_mask_available,
+        valid_mask=valid_mask,
+        source_chunk_index=source_chunk_index,
+    )
+
 def audio_duration_sec(path: Path) -> float:
     info = sf.info(path)
     return float(info.frames) / float(info.samplerate)
@@ -1192,6 +1314,91 @@ def write_audio_window(
     ensure_dir(output_path.parent)
     sf.write(output_path, data, sr)
 
+
+
+
+def write_black_mask_like(source_frame: str | None, output_path: Path) -> None:
+    shape = (1, 1)
+    if source_frame is not None:
+        image = cv2.imread(str(source_frame), cv2.IMREAD_GRAYSCALE)
+        if image is not None:
+            shape = image.shape[:2]
+    black = np.zeros(shape, dtype=np.uint8)
+    ok = cv2.imwrite(str(output_path), black, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+    if not ok:
+        raise RuntimeError(f"Failed to write black mask JPG: {output_path}")
+
+
+def save_mask_window(
+    path: Path,
+    stream: MaskStream,
+    start_idx: int,
+    end_idx: int,
+    metadata: dict[str, Any],
+    overwrite: bool,
+) -> tuple[int, float]:
+    window_len = end_idx - start_idx
+    copy_end = min(end_idx, stream.num_frames)
+    copy_len = max(0, copy_end - start_idx)
+    frame_indices = np.arange(start_idx, end_idx, dtype=np.int32)
+    frame_stems = np.full((window_len,), "", dtype=object)
+    source_frame_paths = np.full((window_len,), None, dtype=object)
+    source_mask_paths = np.full((window_len,), None, dtype=object)
+    source_mask_available = np.zeros((window_len,), dtype=np.bool_)
+    valid = np.zeros((window_len,), dtype=np.bool_)
+    source_chunk_index = np.zeros((window_len,), dtype=np.int32)
+
+    if copy_len > 0:
+        dst = slice(0, copy_len)
+        src = slice(start_idx, copy_end)
+        frame_stems[dst] = stream.frame_stems[src]
+        source_frame_paths[dst] = stream.source_frame_paths[src]
+        source_mask_paths[dst] = stream.mask_paths[src]
+        source_mask_available[dst] = stream.source_mask_available[src]
+        valid[dst] = stream.valid_mask[src]
+        source_chunk_index[dst] = stream.source_chunk_index[src].astype(np.int32)
+
+    num_valid = int(valid.sum())
+    num_source_masks = int(source_mask_available.sum())
+    if path.exists() and not overwrite:
+        return num_valid, num_valid / float(window_len)
+    if path.exists():
+        shutil.rmtree(path)
+    ensure_dir(path)
+
+    mask_filenames: list[str | None] = []
+    for local_idx, source_path in enumerate(source_mask_paths.tolist()):
+        if not bool(valid[local_idx]):
+            mask_filenames.append(None)
+            continue
+        output_name = f"frame_{local_idx:06d}.jpg"
+        output_path = path / output_name
+        if source_path is not None and bool(source_mask_available[local_idx]):
+            shutil.copy2(str(source_path), output_path)
+        else:
+            frame_path = source_frame_paths[local_idx]
+            write_black_mask_like(str(frame_path) if frame_path is not None else None, output_path)
+        mask_filenames.append(output_name)
+
+    write_json(
+        path / "summary.json",
+        {
+            **metadata,
+            "frame_indices": frame_indices.astype(int).tolist(),
+            "source_frame_stems": frame_stems.tolist(),
+            "source_frame_paths": [str(value) if value is not None else None for value in source_frame_paths.tolist()],
+            "source_mask_paths": [str(value) if value is not None else None for value in source_mask_paths.tolist()],
+            "source_mask_available": source_mask_available.astype(bool).tolist(),
+            "mask_filenames": mask_filenames,
+            "mask_valid_mask": valid.astype(bool).tolist(),
+            "source_chunk_index": source_chunk_index.astype(int).tolist(),
+            "num_mask_frames": int(num_valid),
+            "num_source_mask_frames": int(num_source_masks),
+            "num_black_fallback_frames": int(num_valid - num_source_masks),
+            "mask_valid_ratio": num_valid / float(window_len),
+        },
+    )
+    return num_valid, num_valid / float(window_len)
 
 def window_starts(
     max_duration_sec: float,
@@ -1576,6 +1783,7 @@ def build_split(
     text_output_root = split_output / "t5_text_features"
     masked_clip_output_root = split_output / "masked_clip_features"
     masked_da3_output_root = split_output / "masked_da3_features"
+    mask_output_root = split_output / "final_mask"
     manifest_path = split_output / "manifest" / "manifest_mm.jsonl"
     summary_path = split_output / "manifest" / "build_summary_mm.json"
     original_audio_root = original_root / split / "audio"
@@ -1586,6 +1794,7 @@ def build_split(
     scene_summaries: list[dict[str, Any]] = []
     audio_written: set[Path] = set()
     video_written: set[Path] = set()
+    mask_written: set[Path] = set()
     video_chunk_interval_cache: dict[str, list[ChunkInterval]] = {}
     original_video_cache: dict[str, Path | None] = {}
     audio_duration_cache: dict[Path, float] = {}
@@ -1596,8 +1805,8 @@ def build_split(
 
     index = discover_split_index(split_root, split, conflicted)
     if index is None:
-        drop_counts["missing_depth_clip_pe_or_text_root"] += 1
-        handle_missing(args.missing_policy, f"Missing depth, CLIP, PE, or T5 text root for split {split}: {split_root}")
+        drop_counts["missing_depth_clip_pe_text_or_mask_root"] += 1
+        handle_missing(args.missing_policy, f"Missing depth, CLIP, PE, T5 text, or final_mask root for split {split}: {split_root}")
         summary = {
             "split": split,
             "skipped": True,
@@ -1626,7 +1835,7 @@ def build_split(
             if not intervals:
                 matching_indices = {
                     chunk.chunk_index
-                    for mapping in (index.depth, index.clip, index.pe, index.masked_clip, index.masked_da3, index.text)
+                    for mapping in (index.depth, index.clip, index.pe, index.masked_clip, index.masked_da3, index.text, index.masks)
                     for (item_scene, _person_id, item_base), chunks in mapping.items()
                     if item_scene == scene_name and item_base == base_video
                     for chunk in chunks
@@ -1748,6 +1957,11 @@ def build_split(
                     drop_counts["missing_target_t5_text"] += 1
                     if not handle_missing(args.missing_policy, f"Missing target T5 text chunks: {pair_key}"):
                         continue
+                if pair_key not in index.masks:
+                    scene_summary["drop_counts"]["missing_target_mask"] += 1
+                    drop_counts["missing_target_mask"] += 1
+                    if not handle_missing(args.missing_policy, f"Missing target mask chunks: {pair_key}"):
+                        continue
 
                 base_chunk_intervals = get_video_chunk_intervals(scene, src_base)
                 geometry = merge_geometry(index.depth[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
@@ -1756,6 +1970,7 @@ def build_split(
                 masked_clip = merge_mask_pooled_feature(index.masked_clip[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
                 masked_da3 = merge_mask_pooled_feature(index.masked_da3[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
                 text = merge_text(index.text[pair_key], args.fps, args.chunk_sec, base_chunk_intervals)
+                mask = merge_mask(index.masks[pair_key], split_root, src_base, args.fps, args.chunk_sec, base_chunk_intervals)
                 max_duration_sec = min(
                     get_audio_duration(src_audio_source),
                     get_audio_duration(tgt_audio_source),
@@ -1763,6 +1978,7 @@ def build_split(
                     clip.num_frames / args.fps,
                     pe.num_frames / args.fps,
                     text.num_frames / args.fps,
+                    mask.num_frames / args.fps,
                 )
                 starts = window_starts(
                     max_duration_sec,
@@ -1797,6 +2013,7 @@ def build_split(
                             or end_idx > clip.num_frames
                             or end_idx > pe.num_frames
                             or end_idx > text.num_frames
+                            or end_idx > mask.num_frames
                         )
                     ):
                         scene_summary["drop_counts"]["window_exceeds_modality"] += 1
@@ -1823,32 +2040,40 @@ def build_split(
                         continue
 
                     clip_valid = int(clip.valid_mask[start_idx:end_idx].sum().item())
-                    if clip_valid == 0:
+                    if not args.keep_empty_target_windows and clip_valid == 0:
                         scene_summary["drop_counts"]["no_valid_clip_in_window"] += 1
                         drop_counts["no_valid_clip_in_window"] += 1
                         continue
                     clip_statuses = clip.frame_statuses[start_idx:end_idx]
-                    if not any(status == "masked" for status in clip_statuses):
+                    if (
+                        not args.keep_fully_absent_target_visual
+                        and not any(status == "masked" for status in clip_statuses)
+                    ):
                         scene_summary["drop_counts"]["fully_absent_target_visual"] += 1
                         drop_counts["fully_absent_target_visual"] += 1
                         continue
 
                     pe_valid = int(pe.valid_mask[start_idx:end_idx].sum().item())
-                    if pe_valid == 0:
+                    if not args.keep_empty_target_windows and pe_valid == 0:
                         scene_summary["drop_counts"]["no_valid_pe_in_window"] += 1
                         drop_counts["no_valid_pe_in_window"] += 1
                         continue
 
                     text_valid = int(text.valid_mask[start_idx:end_idx].sum().item())
-                    if text_valid == 0:
+                    if not args.keep_empty_target_windows and text_valid == 0:
                         scene_summary["drop_counts"]["no_valid_t5_text_in_window"] += 1
                         drop_counts["no_valid_t5_text_in_window"] += 1
                         continue
 
                     geometry_valid = int(geometry.valid_mask[start_idx:end_idx].sum())
-                    if geometry_valid == 0:
+                    if not args.keep_empty_target_windows and geometry_valid == 0:
                         scene_summary["drop_counts"]["no_valid_geometry_in_window"] += 1
                         drop_counts["no_valid_geometry_in_window"] += 1
+                        continue
+                    mask_valid = int(mask.valid_mask[start_idx:end_idx].sum())
+                    if mask_valid < window_frames:
+                        scene_summary["drop_counts"]["incomplete_target_mask_window"] += 1
+                        drop_counts["incomplete_target_mask_window"] += 1
                         continue
                     geometry_valid_ratio = geometry_valid / float(window_frames)
                     if (
@@ -1936,6 +2161,9 @@ def build_split(
                     masked_da3_path = (
                         masked_da3_output_root / scene / src_base / f"target_person_{tgt_person_id}" / f"{sidecar_name}.pt"
                     )
+                    mask_path = (
+                        mask_output_root / scene / src_base / f"target_person_{tgt_person_id}" / sidecar_name
+                    )
                     metadata = {
                         "split": split,
                         "scene_name": scene,
@@ -2001,6 +2229,15 @@ def build_split(
                         metadata,
                         args.overwrite,
                     )
+                    mask_count, mask_ratio = save_mask_window(
+                        mask_path,
+                        mask,
+                        start_idx,
+                        end_idx,
+                        metadata,
+                        args.overwrite,
+                    )
+                    mask_written.add(mask_path)
 
                     record = {
                         "split": split,
@@ -2041,6 +2278,9 @@ def build_split(
                         "tgt_masked_da3_feature_filename": masked_da3_path.name,
                         "tgt_masked_da3_num_valid_frames": masked_da3_count,
                         "tgt_masked_da3_valid_ratio": masked_da3_ratio,
+                        "tgt_mask_path": str(mask_path),
+                        "tgt_mask_num_frames": mask_count,
+                        "tgt_mask_valid_ratio": mask_ratio,
                         "tgt_t5_text_feature_path": str(text_path),
                         "tgt_t5_text_feature_filename": text_path.name,
                         "tgt_t5_text_num_valid_frames": text_count,
@@ -2058,6 +2298,8 @@ def build_split(
                         "tgt_masked_clip_aligned_end_ms": aligned_end_ms,
                         "tgt_masked_da3_aligned_start_ms": aligned_start_ms,
                         "tgt_masked_da3_aligned_end_ms": aligned_end_ms,
+                        "tgt_mask_aligned_start_ms": aligned_start_ms,
+                        "tgt_mask_aligned_end_ms": aligned_end_ms,
                         "tgt_t5_text_aligned_start_ms": aligned_start_ms,
                         "tgt_t5_text_aligned_end_ms": aligned_end_ms,
                         "window_frames": window_frames,
@@ -2089,6 +2331,8 @@ def build_split(
         "max_audio_duration_sec": float(args.max_audio_duration_sec),
         "audio_stem_allowlist": sorted(audio_stem_allowlist) if audio_stem_allowlist is not None else None,
         "test_min_geometry_valid_ratio": args.test_min_geometry_valid_ratio,
+        "keep_fully_absent_target_visual": bool(args.keep_fully_absent_target_visual),
+        "keep_empty_target_windows": bool(args.keep_empty_target_windows),
         "window_sec": window_sec,
         "overlap": overlap,
         "overlap_mode": args.overlap_mode,
@@ -2103,6 +2347,7 @@ def build_split(
         "emitted_record_count": len(records),
         "audio_window_count": len(audio_written),
         "video_window_count": len(video_written),
+        "mask_window_count": len(mask_written),
         "write_video_windows": bool(args.write_video_windows),
         "video_window_mode": args.video_window_mode,
         "video_window_audio": args.video_window_audio,
